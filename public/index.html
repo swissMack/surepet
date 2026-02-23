@@ -1,0 +1,523 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SurePet Curfew</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=DM+Sans:ital,wght@0,400;0,500;0,600;1,400&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg-deep:#080b14;--bg-base:#0d1120;--bg-card:#141a2e;--bg-card-hover:#1a2240;
+  --bg-input:#0f1528;--border:#1e2a4a;--border-focus:#f59e0b44;
+  --text-primary:#e8ecf4;--text-secondary:#8892a8;--text-muted:#505a72;
+  --amber:#f59e0b;--amber-dim:#b37400;--amber-glow:#f59e0b22;
+  --teal:#2dd4bf;--teal-dim:#0d9488;
+  --rose:#f43f5e;--rose-dim:#be123c;
+  --emerald:#10b981;--emerald-dim:#059669;
+  --radius:14px;--radius-sm:8px;
+}
+html{font-size:15px;scroll-behavior:smooth}
+body{
+  font-family:'DM Sans',sans-serif;background:var(--bg-deep);color:var(--text-primary);
+  min-height:100vh;overflow-x:hidden;
+  background-image:
+    radial-gradient(ellipse 80% 50% at 50% -20%,#f59e0b08,transparent),
+    radial-gradient(ellipse 60% 40% at 80% 100%,#2dd4bf06,transparent);
+}
+
+/* ── Header ── */
+.header{
+  position:sticky;top:0;z-index:50;
+  padding:1rem 1.5rem;
+  background:var(--bg-deep);
+  border-bottom:1px solid var(--border);
+  backdrop-filter:blur(20px);
+  display:flex;align-items:center;justify-content:space-between;gap:1rem;
+  flex-wrap:wrap;
+}
+.header-left{display:flex;align-items:center;gap:.75rem}
+.logo{
+  width:36px;height:36px;
+  background:linear-gradient(135deg,var(--amber),#ea580c);
+  border-radius:10px;display:grid;place-items:center;
+  font-size:1.2rem;line-height:1;
+  box-shadow:0 0 20px var(--amber-glow);
+}
+.header h1{font-family:'Outfit',sans-serif;font-weight:700;font-size:1.25rem;letter-spacing:-.02em}
+.header h1 span{color:var(--amber);font-weight:800}
+.header-meta{display:flex;align-items:center;gap:1rem;flex-wrap:wrap}
+.meta-pill{
+  font-size:.75rem;color:var(--text-secondary);
+  background:var(--bg-card);border:1px solid var(--border);
+  padding:.35rem .7rem;border-radius:20px;
+  display:flex;align-items:center;gap:.4rem;
+}
+.meta-pill .dot{width:6px;height:6px;border-radius:50%;flex-shrink:0}
+.dot-green{background:var(--emerald);box-shadow:0 0 6px var(--emerald)}
+.dot-red{background:var(--rose);box-shadow:0 0 6px var(--rose)}
+.dot-amber{background:var(--amber);box-shadow:0 0 6px var(--amber)}
+.btn-sync{
+  background:none;border:1px solid var(--border);color:var(--text-secondary);
+  padding:.35rem .7rem;border-radius:20px;cursor:pointer;font-size:.75rem;
+  font-family:'DM Sans',sans-serif;transition:all .2s;
+  display:flex;align-items:center;gap:.35rem;
+}
+.btn-sync:hover{border-color:var(--amber);color:var(--amber)}
+.btn-sync.syncing{opacity:.5;pointer-events:none}
+.btn-sync svg{width:14px;height:14px}
+
+/* ── Layout ── */
+.container{max-width:1100px;margin:0 auto;padding:1.5rem}
+.section-title{
+  font-family:'Outfit',sans-serif;font-weight:600;font-size:1rem;
+  color:var(--text-secondary);letter-spacing:.04em;text-transform:uppercase;
+  margin-bottom:1rem;display:flex;align-items:center;gap:.5rem;
+}
+.section-title::before{content:'';display:block;width:3px;height:14px;border-radius:2px;background:var(--amber)}
+.grid-cats{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:1rem;margin-bottom:2rem}
+
+/* ── Cat Card ── */
+.cat-card{
+  background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);
+  padding:1.25rem;position:relative;overflow:hidden;
+  transition:border-color .25s,box-shadow .25s;
+}
+.cat-card:hover{border-color:#ffffff12;box-shadow:0 8px 32px #00000040}
+.cat-card.curfew-on{border-color:var(--rose-dim)}
+.cat-card.curfew-on::after{
+  content:'';position:absolute;top:0;left:0;right:0;height:2px;
+  background:linear-gradient(90deg,var(--rose),var(--amber));
+}
+.cat-top{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:.85rem}
+.cat-name{font-family:'Outfit',sans-serif;font-weight:700;font-size:1.35rem;letter-spacing:-.01em}
+.cat-location{
+  font-size:.7rem;font-weight:600;letter-spacing:.04em;text-transform:uppercase;
+  padding:.3rem .6rem;border-radius:20px;display:flex;align-items:center;gap:.35rem;
+}
+.loc-inside{background:#2dd4bf18;color:var(--teal)}
+.loc-outside{background:#f59e0b18;color:var(--amber)}
+.loc-unknown{background:#505a7218;color:var(--text-muted)}
+.cat-status{
+  display:flex;align-items:center;gap:.5rem;margin-bottom:1rem;
+  font-size:.8rem;color:var(--text-secondary);
+}
+.curfew-badge{
+  padding:.25rem .55rem;border-radius:6px;font-size:.7rem;font-weight:600;
+  letter-spacing:.02em;text-transform:uppercase;
+}
+.curfew-badge.active{background:#f43f5e20;color:var(--rose)}
+.curfew-badge.inactive{background:#10b98118;color:var(--emerald)}
+.profile-tag{font-size:.7rem;color:var(--text-muted)}
+.cat-actions{display:flex;gap:.5rem;margin-bottom:.85rem}
+.btn{
+  font-family:'DM Sans',sans-serif;font-size:.75rem;font-weight:600;
+  padding:.45rem .85rem;border-radius:var(--radius-sm);border:none;
+  cursor:pointer;transition:all .2s;display:flex;align-items:center;gap:.3rem;
+}
+.btn:disabled{opacity:.4;pointer-events:none}
+.btn-lock{background:var(--rose-dim);color:#fff}
+.btn-lock:hover{background:var(--rose);box-shadow:0 0 16px #f43f5e33}
+.btn-unlock{background:var(--emerald-dim);color:#fff}
+.btn-unlock:hover{background:var(--emerald);box-shadow:0 0 16px #10b98133}
+
+/* schedules inside cat card */
+.cat-schedules{border-top:1px solid var(--border);padding-top:.75rem;margin-top:.5rem}
+.cat-schedules-label{font-size:.7rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:.04em;margin-bottom:.4rem;font-weight:600}
+.sched-row{
+  display:flex;align-items:center;justify-content:space-between;gap:.5rem;
+  padding:.35rem 0;font-size:.78rem;
+}
+.sched-info{display:flex;align-items:center;gap:.4rem;flex:1;min-width:0}
+.sched-name{color:var(--text-primary);font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sched-time{color:var(--amber);font-family:'Outfit',sans-serif;font-weight:600;font-size:.75rem;white-space:nowrap}
+.sched-days{color:var(--text-muted);font-size:.65rem;letter-spacing:.02em}
+.sched-actions{display:flex;gap:.3rem;flex-shrink:0}
+.btn-xs{
+  background:none;border:1px solid var(--border);color:var(--text-secondary);
+  width:26px;height:26px;border-radius:6px;cursor:pointer;
+  display:grid;place-items:center;font-size:.7rem;transition:all .2s;
+}
+.btn-xs:hover{border-color:var(--amber);color:var(--amber)}
+.btn-xs.off{opacity:.4}
+.btn-xs.del:hover{border-color:var(--rose);color:var(--rose)}
+
+/* ── Device Card ── */
+.grid-devices{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:1rem;margin-bottom:2rem}
+.device-card{
+  background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);
+  padding:1.25rem;
+}
+.device-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem}
+.device-name{font-family:'Outfit',sans-serif;font-weight:600;font-size:1.1rem}
+.device-online{font-size:.7rem;font-weight:600;padding:.25rem .5rem;border-radius:20px}
+.online-yes{background:#10b98118;color:var(--emerald)}
+.online-no{background:#f43f5e18;color:var(--rose)}
+.device-stats{display:grid;grid-template-columns:1fr 1fr;gap:.75rem}
+.stat{display:flex;flex-direction:column;gap:.3rem}
+.stat-label{font-size:.65rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em;font-weight:600}
+.stat-value{font-family:'Outfit',sans-serif;font-weight:600;font-size:1rem}
+.battery-bar{
+  width:100%;height:6px;background:var(--bg-deep);border-radius:3px;overflow:hidden;
+  margin-top:.25rem;
+}
+.battery-fill{height:100%;border-radius:3px;transition:width .5s}
+.batt-good{background:linear-gradient(90deg,var(--emerald),var(--teal))}
+.batt-mid{background:linear-gradient(90deg,var(--amber),#f97316)}
+.batt-low{background:linear-gradient(90deg,var(--rose),#f97316)}
+
+/* ── New Schedule Form ── */
+.form-section{
+  background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);
+  padding:1.25rem;margin-bottom:2rem;
+}
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:.75rem}
+@media(max-width:600px){.form-grid{grid-template-columns:1fr}}
+.form-group{display:flex;flex-direction:column;gap:.3rem}
+.form-group.full{grid-column:1/-1}
+.form-label{font-size:.7rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em;font-weight:600}
+.form-input,.form-select{
+  background:var(--bg-input);border:1px solid var(--border);color:var(--text-primary);
+  padding:.55rem .75rem;border-radius:var(--radius-sm);font-family:'DM Sans',sans-serif;
+  font-size:.85rem;transition:border-color .2s;outline:none;
+}
+.form-input:focus,.form-select:focus{border-color:var(--amber)}
+.form-select option{background:var(--bg-card);color:var(--text-primary)}
+.days-row{display:flex;gap:.35rem;flex-wrap:wrap}
+.day-check{
+  width:36px;height:32px;border-radius:6px;
+  background:var(--bg-input);border:1px solid var(--border);
+  color:var(--text-muted);font-size:.7rem;font-weight:600;
+  display:grid;place-items:center;cursor:pointer;transition:all .2s;
+  user-select:none;font-family:'Outfit',sans-serif;
+}
+.day-check.selected{background:var(--amber);color:var(--bg-deep);border-color:var(--amber)}
+.btn-submit{
+  background:linear-gradient(135deg,var(--amber),#ea580c);color:#fff;
+  font-weight:700;padding:.6rem 1.5rem;border-radius:var(--radius-sm);
+  border:none;cursor:pointer;font-family:'Outfit',sans-serif;font-size:.85rem;
+  letter-spacing:.01em;transition:all .2s;margin-top:.5rem;
+}
+.btn-submit:hover{box-shadow:0 0 24px var(--amber-glow);transform:translateY(-1px)}
+.btn-submit:disabled{opacity:.4;pointer-events:none}
+
+/* ── Events Log ── */
+.events-section{margin-bottom:2rem}
+.events-list{
+  background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);
+  overflow:hidden;
+}
+.event-row{
+  display:flex;align-items:center;gap:.75rem;
+  padding:.65rem 1rem;border-bottom:1px solid #ffffff06;
+  font-size:.78rem;transition:background .15s;
+}
+.event-row:last-child{border-bottom:none}
+.event-row:hover{background:#ffffff04}
+.event-time{color:var(--text-muted);font-family:'Outfit',sans-serif;font-size:.7rem;white-space:nowrap;min-width:70px}
+.event-type{
+  font-weight:600;font-size:.65rem;letter-spacing:.03em;text-transform:uppercase;
+  padding:.2rem .45rem;border-radius:4px;white-space:nowrap;
+}
+.et-curfew_activated,.et-cron_lock{background:#f43f5e18;color:var(--rose)}
+.et-curfew_deactivated,.et-cron_unlock{background:#10b98118;color:var(--emerald)}
+.et-cat_movement{background:#2dd4bf18;color:var(--teal)}
+.et-device_online,.et-device_discovered,.et-cat_discovered{background:#f59e0b18;color:var(--amber)}
+.et-device_offline,.et-curfew_error{background:#f43f5e18;color:var(--rose)}
+.et-device_lock_changed{background:#8b5cf618;color:#a78bfa}
+.event-detail{color:var(--text-secondary);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+/* ── Toast ── */
+.toast{
+  position:fixed;bottom:1.5rem;right:1.5rem;z-index:100;
+  background:var(--bg-card);border:1px solid var(--border);
+  padding:.75rem 1.1rem;border-radius:var(--radius-sm);
+  font-size:.8rem;color:var(--text-primary);
+  box-shadow:0 12px 40px #00000060;
+  transform:translateY(120%);opacity:0;transition:all .35s cubic-bezier(.34,1.56,.64,1);
+  max-width:340px;
+}
+.toast.show{transform:translateY(0);opacity:1}
+.toast.success{border-color:var(--emerald-dim)}
+.toast.error{border-color:var(--rose-dim)}
+
+/* ── Empty ── */
+.empty{text-align:center;padding:2rem;color:var(--text-muted);font-size:.85rem}
+
+/* ── Responsive ── */
+@media(max-width:500px){
+  .header{padding:.75rem 1rem}
+  .container{padding:1rem}
+  .grid-cats,.grid-devices{grid-template-columns:1fr}
+  .cat-name{font-size:1.15rem}
+}
+
+/* ── Animations ── */
+@keyframes fadeUp{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+.cat-card,.device-card,.form-section,.events-list{animation:fadeUp .4s ease-out both}
+.cat-card:nth-child(2){animation-delay:.06s}
+.cat-card:nth-child(3){animation-delay:.12s}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-left">
+    <div class="logo">🐈</div>
+    <h1>Sure<span>Pet</span> Curfew</h1>
+  </div>
+  <div class="header-meta" id="headerMeta"></div>
+</div>
+
+<div class="container">
+  <div class="section-title">Cats</div>
+  <div class="grid-cats" id="catGrid"></div>
+
+  <div class="section-title">Devices</div>
+  <div class="grid-devices" id="deviceGrid"></div>
+
+  <div class="section-title">New Schedule</div>
+  <div class="form-section">
+    <form id="schedForm" class="form-grid">
+      <div class="form-group">
+        <label class="form-label">Cat</label>
+        <select class="form-select" id="fCat" required></select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Schedule Name</label>
+        <input class="form-input" id="fName" placeholder="e.g. Night curfew" required>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Lock Time</label>
+        <input class="form-input" type="time" id="fLock" value="21:00" required>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Unlock Time</label>
+        <input class="form-input" type="time" id="fUnlock" value="07:00" required>
+      </div>
+      <div class="form-group full">
+        <label class="form-label">Days</label>
+        <div class="days-row" id="fDays"></div>
+      </div>
+      <div class="form-group full">
+        <button type="submit" class="btn-submit" id="fSubmit">Create Schedule</button>
+      </div>
+    </form>
+  </div>
+
+  <div class="section-title">Recent Events</div>
+  <div class="events-section">
+    <div class="events-list" id="eventList"></div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const DAY_LABELS = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+const LOCK_MODES = {0:'Unlocked',1:'Locked In',2:'Locked Out',3:'Locked All'};
+let selectedDays = new Set([0,1,2,3,4,5,6]);
+let state = {cats:[],devices:[],events:[],lastPoll:null,activeSchedules:0};
+
+// ── API helpers ──
+const api = (path, opts={}) => fetch(path, {headers:{'Content-Type':'application/json'},...opts}).then(r=>r.json());
+const post = (path, body) => api(path, {method:'POST',body:body?JSON.stringify(body):undefined});
+const del = (path) => api(path, {method:'DELETE'});
+
+// ── Toast ──
+function toast(msg, type='success') {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.className = 'toast ' + type + ' show';
+  clearTimeout(el._t);
+  el._t = setTimeout(() => el.classList.remove('show'), 3000);
+}
+
+// ── Render ──
+function renderHeader() {
+  const poll = state.lastPoll ? new Date(state.lastPoll).toLocaleTimeString() : '—';
+  document.getElementById('headerMeta').innerHTML = `
+    <div class="meta-pill"><span class="dot dot-green"></span>Polling</div>
+    <div class="meta-pill">Last: ${poll}</div>
+    <div class="meta-pill">${state.activeSchedules} schedule${state.activeSchedules!==1?'s':''}</div>
+    <button class="btn-sync" id="btnSync" onclick="doSync()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M21 2v6h-6"/><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M3 22v-6h6"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/></svg>
+      Sync
+    </button>
+  `;
+}
+
+function renderCats() {
+  const grid = document.getElementById('catGrid');
+  if (!state.cats.length) { grid.innerHTML='<div class="empty">No cats found</div>'; return; }
+  grid.innerHTML = state.cats.map(c => {
+    const locClass = c.location==='inside'?'loc-inside':c.location==='outside'?'loc-outside':'loc-unknown';
+    const locIcon = c.location==='inside'?'🏠':c.location==='outside'?'🌿':'❓';
+    const schedHtml = (c.schedules||[]).map(s => {
+      const days = (s.days_of_week||[]).map(d=>DAY_LABELS[d].charAt(0)).join('');
+      return `<div class="sched-row">
+        <div class="sched-info">
+          <span class="sched-name">${esc(s.name)}</span>
+          <span class="sched-time">${s.lock_time} → ${s.unlock_time}</span>
+          <span class="sched-days">${days}</span>
+        </div>
+        <div class="sched-actions">
+          <button class="btn-xs ${s.enabled?'':'off'}" title="${s.enabled?'Disable':'Enable'}" onclick="toggleSched(${s.id})">${s.enabled?'⏸':'▶'}</button>
+          <button class="btn-xs del" title="Delete" onclick="deleteSched(${s.id})">✕</button>
+        </div>
+      </div>`;
+    }).join('');
+    return `<div class="cat-card ${c.curfew_active?'curfew-on':''}">
+      <div class="cat-top">
+        <div class="cat-name">${esc(c.name)}</div>
+        <div class="cat-location ${locClass}">${locIcon} ${c.location}</div>
+      </div>
+      <div class="cat-status">
+        <span class="curfew-badge ${c.curfew_active?'active':'inactive'}">${c.curfew_active?'🔒 Curfew On':'🔓 Free'}</span>
+        <span class="profile-tag">Profile ${c.current_profile}</span>
+      </div>
+      <div class="cat-actions">
+        <button class="btn btn-lock" ${c.curfew_active?'disabled':''} onclick="curfew(${c.id},'activate')">Lock In</button>
+        <button class="btn btn-unlock" ${!c.curfew_active?'disabled':''} onclick="curfew(${c.id},'deactivate')">Free</button>
+      </div>
+      ${(c.schedules||[]).length?`<div class="cat-schedules"><div class="cat-schedules-label">Schedules</div>${schedHtml}</div>`:''}
+    </div>`;
+  }).join('');
+}
+
+function renderDevices() {
+  const grid = document.getElementById('deviceGrid');
+  if (!state.devices.length) { grid.innerHTML='<div class="empty">No devices found</div>'; return; }
+  grid.innerHTML = state.devices.map(d => {
+    const batt = d.battery_level ?? 0;
+    const battClass = batt > 50 ? 'batt-good' : batt > 20 ? 'batt-mid' : 'batt-low';
+    const sig = d.signal_strength ?? 0;
+    const sigBars = sig > -60 ? '▂▄▆█' : sig > -75 ? '▂▄▆' : sig > -85 ? '▂▄' : '▂';
+    return `<div class="device-card">
+      <div class="device-top">
+        <div class="device-name">${esc(d.name)}</div>
+        <span class="device-online ${d.online?'online-yes':'online-no'}">${d.online?'● Online':'● Offline'}</span>
+      </div>
+      <div class="device-stats">
+        <div class="stat">
+          <span class="stat-label">Battery</span>
+          <span class="stat-value">${batt}%</span>
+          <div class="battery-bar"><div class="battery-fill ${battClass}" style="width:${batt}%"></div></div>
+        </div>
+        <div class="stat">
+          <span class="stat-label">Signal</span>
+          <span class="stat-value">${sigBars} <span style="font-size:.7rem;color:var(--text-muted)">${sig} dBm</span></span>
+        </div>
+        <div class="stat">
+          <span class="stat-label">Lock Mode</span>
+          <span class="stat-value">${LOCK_MODES[d.lock_mode]||'Unknown'}</span>
+        </div>
+        <div class="stat">
+          <span class="stat-label">Voltage</span>
+          <span class="stat-value">${d.battery_voltage?.toFixed(2) ?? '—'}V</span>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function renderEvents() {
+  const list = document.getElementById('eventList');
+  if (!state.events.length) { list.innerHTML='<div class="empty">No events yet</div>'; return; }
+  list.innerHTML = state.events.map(e => {
+    const t = new Date(e.created_at+'Z');
+    const time = t.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
+    const det = e.details ? Object.entries(e.details).map(([k,v])=>`${k}: ${v}`).join(', ') : '';
+    return `<div class="event-row">
+      <span class="event-time">${time}</span>
+      <span class="event-type et-${e.event_type}">${e.event_type.replace(/_/g,' ')}</span>
+      <span class="event-detail">${esc(det)}</span>
+    </div>`;
+  }).join('');
+}
+
+function renderCatSelect() {
+  const sel = document.getElementById('fCat');
+  sel.innerHTML = state.cats.map(c=>`<option value="${c.id}">${c.name}</option>`).join('');
+}
+
+function renderDays() {
+  document.getElementById('fDays').innerHTML = DAY_LABELS.map((d,i) =>
+    `<div class="day-check ${selectedDays.has(i)?'selected':''}" data-day="${i}" onclick="toggleDay(${i})">${d}</div>`
+  ).join('');
+}
+
+// ── Actions ──
+async function refresh() {
+  try {
+    const [statusRes, eventsRes] = await Promise.all([api('/api/status'), api('/api/events?limit=20')]);
+    state.cats = statusRes.cats || [];
+    state.devices = statusRes.devices || [];
+    state.lastPoll = statusRes.lastPoll;
+    state.activeSchedules = statusRes.activeSchedules || 0;
+    state.events = eventsRes.events || [];
+    renderHeader(); renderCats(); renderDevices(); renderEvents(); renderCatSelect();
+  } catch(e) { console.error('Refresh failed', e); }
+}
+
+async function curfew(catId, action) {
+  try {
+    await post(`/api/cats/${catId}/curfew/${action}`);
+    toast(`Curfew ${action}d`);
+    await refresh();
+  } catch(e) { toast('Failed: '+e.message, 'error'); }
+}
+
+async function toggleSched(id) {
+  try { await post(`/api/curfew/${id}/toggle`); toast('Schedule toggled'); await refresh(); }
+  catch(e) { toast('Failed', 'error'); }
+}
+
+async function deleteSched(id) {
+  try { await del(`/api/curfew/${id}`); toast('Schedule deleted'); await refresh(); }
+  catch(e) { toast('Failed', 'error'); }
+}
+
+async function doSync() {
+  const btn = document.getElementById('btnSync');
+  btn.classList.add('syncing'); btn.textContent = 'Syncing…';
+  try { await post('/api/sync'); toast('Synced'); await refresh(); }
+  catch(e) { toast('Sync failed', 'error'); }
+  btn.classList.remove('syncing');
+}
+
+function toggleDay(i) {
+  selectedDays.has(i) ? selectedDays.delete(i) : selectedDays.add(i);
+  renderDays();
+}
+
+function esc(s) { const d=document.createElement('div'); d.textContent=s||''; return d.innerHTML; }
+
+// ── Form ──
+document.getElementById('schedForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const btn = document.getElementById('fSubmit');
+  btn.disabled = true; btn.textContent = 'Creating…';
+  try {
+    await post('/api/curfew', {
+      cat_id: Number(document.getElementById('fCat').value),
+      name: document.getElementById('fName').value,
+      lock_time: document.getElementById('fLock').value,
+      unlock_time: document.getElementById('fUnlock').value,
+      days_of_week: [...selectedDays].sort(),
+    });
+    toast('Schedule created');
+    document.getElementById('fName').value = '';
+    await refresh();
+  } catch(e) { toast('Failed: '+e.message, 'error'); }
+  btn.disabled = false; btn.textContent = 'Create Schedule';
+});
+
+// ── Init ──
+renderDays();
+refresh();
+setInterval(refresh, 30000);
+</script>
+</body>
+</html>

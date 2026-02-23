@@ -1,5 +1,8 @@
 import Fastify from "fastify";
 import cors from "@fastify/cors";
+import { readFileSync, existsSync } from "node:fs";
+import { join, dirname } from "node:path";
+import { fileURLToPath } from "node:url";
 import { loadConfig } from "./config.js";
 import { getDb, closeDb } from "./db/connection.js";
 import { runMigrations } from "./db/migrate.js";
@@ -133,6 +136,17 @@ async function main() {
     events: eventRepo,
     client,
   });
+
+  // Serve dashboard
+  const __dirname = dirname(fileURLToPath(import.meta.url));
+  const publicDir = join(__dirname, "..", "public");
+  const dashboardPath = join(publicDir, "index.html");
+  if (existsSync(dashboardPath)) {
+    const html = readFileSync(dashboardPath, "utf-8");
+    fastify.get("/", async (_req, reply) => {
+      return reply.type("text/html").send(html);
+    });
+  }
 
   // Startup sequence
   try {
