@@ -1,0 +1,40 @@
+name: "SurePet Per-Cat Curfew"
+description: "Independent curfew schedules per cat for Sure Petcare DualScan cat flaps"
+version: "1.0.0"
+slug: "surepet-curfew"
+url: "https://github.com/swissMack/Surepet"
+arch:
+  - amd64
+  - aarch64
+  - armv7
+startup: application
+boot: auto
+ports:
+  3000/tcp: 3000
+ports_description:
+  3000/tcp: "REST API"
+ingress: true
+ingress_port: 3000
+panel_icon: "mdi:cat"
+panel_title: "SurePet Curfew"
+services:
+  - mqtt:want
+map:
+  - type: data
+    read_only: false
+options:
+  email: ""
+  password: ""
+  poll_interval: 60
+  mqtt_enabled: true
+  mqtt_topic_prefix: "surepet"
+  timezone: "Europe/Amsterdam"
+  api_key: ""
+schema:
+  email: email
+  password: password
+  poll_interval: "int(10,3600)"
+  mqtt_enabled: bool
+  mqtt_topic_prefix: str
+  timezone: str
+  api_key: "str?"

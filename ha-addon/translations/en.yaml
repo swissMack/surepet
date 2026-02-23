@@ -1,0 +1,22 @@
+configuration:
+  email:
+    name: Sure Petcare Email
+    description: Email address for your Sure Petcare account
+  password:
+    name: Sure Petcare Password
+    description: Password for your Sure Petcare account
+  poll_interval:
+    name: Poll Interval
+    description: How often to poll the Sure Petcare API (in seconds)
+  mqtt_enabled:
+    name: Enable MQTT
+    description: Publish cat/device state via MQTT for Home Assistant auto-discovery
+  mqtt_topic_prefix:
+    name: MQTT Topic Prefix
+    description: Prefix for all MQTT topics (default: surepet)
+  timezone:
+    name: Timezone
+    description: Timezone for curfew schedules (e.g., Europe/Amsterdam)
+  api_key:
+    name: API Key (optional)
+    description: Optional API key to protect the REST API

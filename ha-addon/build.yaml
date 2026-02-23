@@ -1,0 +1,4 @@
+build_from:
+  amd64: "ghcr.io/home-assistant/amd64-base-nodejs:22.0"
+  aarch64: "ghcr.io/home-assistant/aarch64-base-nodejs:22.0"
+  armv7: "ghcr.io/home-assistant/armv7-base-nodejs:22.0"
