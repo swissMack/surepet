@@ -81,8 +81,11 @@ export class StateManager {
 
   private syncDevice(device: Device): void {
     const existing = this.devices.getById(device.id);
-    const battery = device.status?.battery_percentage ?? null;
     const batteryVoltage = device.status?.battery ?? null;
+    // Calculate battery percentage from voltage (4xAA: ~4.0V dead, ~6.4V new)
+    const battery = batteryVoltage
+      ? Math.max(0, Math.min(100, Math.round(((batteryVoltage - 4.0) / 2.4) * 100)))
+      : null;
     const online = device.status?.online ? 1 : 0;
     const lockMode = device.control?.locking ?? 0;
     const signal =
@@ -141,7 +144,7 @@ export class StateManager {
     let currentProfile = 2; // default: full access
     for (const device of devices) {
       if (device.tags) {
-        const tagMatch = device.tags.find((t) => t.tag_id === pet.tag_id);
+        const tagMatch = device.tags.find((t) => t.id === pet.tag_id);
         if (tagMatch) {
           deviceId = device.id;
           currentProfile = tagMatch.profile;
