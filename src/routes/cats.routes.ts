@@ -62,6 +62,31 @@ export function catsRoutes(fastify: FastifyInstance, deps: CatsDeps): void {
     }
   );
 
+  fastify.post<{ Params: { id: string }; Body: { location: string } }>(
+    "/api/cats/:id/location",
+    async (request, reply) => {
+      const catId = Number(request.params.id);
+      const cat = cats.getById(catId);
+      if (!cat) {
+        return reply.status(404).send({ error: "Cat not found" });
+      }
+      const { location } = request.body as { location: string };
+      if (location !== "inside" && location !== "outside") {
+        return reply.status(400).send({ error: "Location must be 'inside' or 'outside'" });
+      }
+      const prev = cat.location;
+      cats.updateLocation(catId, location);
+      events.log(
+        "manual_location",
+        { name: cat.name, from: prev, to: location },
+        catId,
+        cat.device_id ?? undefined
+      );
+      mqtt.publishState();
+      return { status: "location_updated", catId, location };
+    }
+  );
+
   fastify.post<{ Params: { id: string } }>(
     "/api/cats/:id/curfew/activate",
     async (request, reply) => {
