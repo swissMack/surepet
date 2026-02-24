@@ -697,6 +697,29 @@ document.getElementById('schedForm').addEventListener('submit', async (e) => {
   if (lockTime === unlockTime) { toast('Lock and unlock times cannot be the same', 'error'); return; }
   if (selectedDays.size === 0) { toast('Select at least one day', 'error'); return; }
 
+  // Check for overlapping schedules on the same cat
+  const catId = Number(document.getElementById('fCat').value);
+  const cat = state.cats.find(c => c.id === catId);
+  if (cat && cat.schedules) {
+    const toMin = t => { const [h,m] = t.split(':').map(Number); return h*60+m; };
+    const newLock = toMin(lockTime), newUnlock = toMin(unlockTime);
+    const overlap = cat.schedules.find(s => {
+      if (editingScheduleId === s.id) return false;
+      if (!s.enabled) return false;
+      const sDays = new Set(s.days_of_week);
+      const sharedDays = [...selectedDays].some(d => sDays.has(d));
+      if (!sharedDays) return false;
+      const sLock = toMin(s.lock_time), sUnlock = toMin(s.unlock_time);
+      // Overnight ranges: expand to check overlap
+      const newRanges = newLock < newUnlock ? [[newLock,newUnlock]] : [[newLock,1440],[0,newUnlock]];
+      const sRanges = sLock < sUnlock ? [[sLock,sUnlock]] : [[sLock,1440],[0,sUnlock]];
+      return newRanges.some(([a1,a2]) => sRanges.some(([b1,b2]) => a1 < b2 && b1 < a2));
+    });
+    if (overlap) {
+      toast(`Warning: overlaps with "${overlap.name}" (${overlap.lock_time}-${overlap.unlock_time})`, 'error');
+    }
+  }
+
   const btn = document.getElementById('fSubmit');
   const isEdit = editingScheduleId !== null;
   btn.disabled = true; btn.textContent = isEdit ? 'Updating…' : 'Creating…';
@@ -722,6 +745,7 @@ document.getElementById('schedForm').addEventListener('submit', async (e) => {
     renderDays();
     editingScheduleId = null;
     btn.textContent = 'Create Schedule';
+    document.getElementById('fCancel').style.display = 'none';
     await refresh();
   } catch(e) { toast('Failed: '+e.message, 'error'); }
   btn.disabled = false;
