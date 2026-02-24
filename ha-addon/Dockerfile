@@ -7,7 +7,7 @@ WORKDIR /app
 
 # Download source (ADD with remote URL is never cached by Docker)
 ADD https://github.com/swissMack/Surepet/archive/refs/heads/main.tar.gz /tmp/surepet.tar.gz
-RUN tar xzf /tmp/surepet.tar.gz -C /tmp && mv /tmp/Surepet-main /tmp/surepet
+RUN tar xzf /tmp/surepet.tar.gz -C /tmp && mv /tmp/*urepet-main /tmp/surepet
 
 # Install all dependencies (need devDeps for tsc)
 RUN cp /tmp/surepet/package.json /tmp/surepet/package-lock.json* ./
