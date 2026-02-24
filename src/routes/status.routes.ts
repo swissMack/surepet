@@ -71,11 +71,18 @@ export function statusRoutes(fastify: FastifyInstance, deps: StatusDeps): void {
         };
       }),
       devices: allDevices.map((d) => {
+        // Find most recent activity across all cats on this device
         let lastSeenAt: string | null = null;
-        try {
-          const raw = d.raw_data ? JSON.parse(d.raw_data) : null;
-          lastSeenAt = raw?.updated_at ?? null;
-        } catch { /* ignore */ }
+        for (const cat of allCats) {
+          if (cat.device_id !== d.id) continue;
+          try {
+            const raw = cat.raw_data ? JSON.parse(cat.raw_data) : null;
+            const since = raw?.status?.activity?.since;
+            if (since && (!lastSeenAt || since > lastSeenAt)) {
+              lastSeenAt = since;
+            }
+          } catch { /* ignore */ }
+        }
         return {
           ...d,
           online: !!d.online,

@@ -5,7 +5,7 @@ RUN apk add --no-cache python3 make g++ curl
 WORKDIR /app
 
 # ARG invalidates all subsequent layers when its value changes
-ARG APP_VERSION=1.0.10
+ARG APP_VERSION=1.0.11
 RUN echo "Building version: ${APP_VERSION}" \
     && curl -sL https://github.com/swissMack/Surepet/archive/refs/heads/main.tar.gz \
     | tar xz -C /app --strip-components=1
