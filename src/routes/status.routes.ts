@@ -73,6 +73,7 @@ export function statusRoutes(fastify: FastifyInstance, deps: StatusDeps): void {
       devices: allDevices.map((d) => {
         // Find most recent activity across all cats on this device
         let lastSeenAt: string | null = null;
+        let lastSeenCat: string | null = null;
         for (const cat of allCats) {
           if (cat.device_id !== d.id) continue;
           try {
@@ -80,6 +81,7 @@ export function statusRoutes(fastify: FastifyInstance, deps: StatusDeps): void {
             const since = raw?.status?.activity?.since;
             if (since && (!lastSeenAt || since > lastSeenAt)) {
               lastSeenAt = since;
+              lastSeenCat = cat.name;
             }
           } catch { /* ignore */ }
         }
@@ -87,6 +89,7 @@ export function statusRoutes(fastify: FastifyInstance, deps: StatusDeps): void {
           ...d,
           online: !!d.online,
           last_seen_at: lastSeenAt,
+          last_seen_cat: lastSeenCat,
         };
       }),
       lastPoll,

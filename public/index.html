@@ -605,7 +605,7 @@ function renderDevices() {
         </div>
         <div class="stat" style="grid-column:1/-1">
           <span class="stat-label">Last Activity</span>
-          <span class="stat-value" style="font-size:.85rem" title="${d.last_seen_at ? new Date(d.last_seen_at).toLocaleString() : ''}">${d.last_seen_at ? timeAgo(d.last_seen_at) + ' <span style=\"font-size:.7rem;color:var(--text-muted)\">' + new Date(d.last_seen_at).toLocaleString() + '</span>' : '—'}</span>
+          <span class="stat-value" style="font-size:.85rem" title="${d.last_seen_at ? new Date(d.last_seen_at).toLocaleString() : ''}">${d.last_seen_at ? (d.last_seen_cat ? '<b>'+esc(d.last_seen_cat)+'</b> · ' : '') + timeAgo(d.last_seen_at) + ' <span style=\"font-size:.7rem;color:var(--text-muted)\">' + new Date(d.last_seen_at).toLocaleString() + '</span>' : '—'}</span>
         </div>
       </div>
       <div class="device-lock-actions">
