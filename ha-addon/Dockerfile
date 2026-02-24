@@ -1,15 +1,15 @@
 ARG BUILD_FROM
 FROM ${BUILD_FROM}
 
-# Install build dependencies for better-sqlite3 native module and TypeScript compilation
-RUN apk add --no-cache python3 make g++ git
+# Install Node.js, npm, and build dependencies for better-sqlite3
+RUN apk add --no-cache nodejs npm python3 make g++ git
 
 WORKDIR /app
 
-# Clone the full repo (HA build context is ha-addon/ only, so we need to fetch source)
+# Clone the repo source (HA build context is ha-addon/ only)
 RUN git clone --depth 1 https://github.com/swissMack/Surepet.git /tmp/surepet
 
-# Copy package files and install ALL dependencies (need devDeps for tsc)
+# Copy package files and install all dependencies (need devDeps for tsc)
 RUN cp /tmp/surepet/package.json /tmp/surepet/package-lock.json* ./
 RUN npm ci
 
