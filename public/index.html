@@ -613,7 +613,7 @@ async function loadMoreEvents() {
 
 function renderCatSelect() {
   const sel = document.getElementById('fCat');
-  sel.innerHTML = state.cats.map(c=>`<option value="${c.id}">${c.name}</option>`).join('');
+  sel.innerHTML = '<option value="" disabled selected>Select a cat…</option>' + state.cats.map(c=>`<option value="${c.id}">${c.name}</option>`).join('');
 }
 
 function renderDays() {
@@ -682,6 +682,7 @@ function editSched(s) {
 
 function cancelEdit() {
   editingScheduleId = null;
+  document.getElementById('fCat').selectedIndex = 0;
   document.getElementById('fName').value = '';
   document.getElementById('fLock').value = '21:00';
   document.getElementById('fUnlock').value = '07:00';
@@ -769,6 +770,7 @@ document.getElementById('schedForm').addEventListener('submit', async (e) => {
       await post('/api/curfew', body);
       toast('Schedule created');
     }
+    document.getElementById('fCat').selectedIndex = 0;
     document.getElementById('fName').value = '';
     document.getElementById('fLock').value = '21:00';
     document.getElementById('fUnlock').value = '07:00';
