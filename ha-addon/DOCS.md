@@ -31,13 +31,45 @@ When MQTT is enabled, the addon automatically:
 
 - **Discovers** the HA MQTT broker (Mosquitto) from Supervisor
 - **Publishes** auto-discovery configs for Home Assistant
-- **Creates entities** for each cat and device:
-  - `binary_sensor.{cat}_curfew` — Curfew state (ON/OFF)
-  - `switch.{cat}_curfew_control` — Toggle curfew from HA
-  - `sensor.{cat}_location` — Inside/outside/unknown
-  - `sensor.{device}_battery` — Battery percentage
-  - `sensor.{device}_signal` — WiFi signal strength (dBm)
-  - `binary_sensor.{device}_online` — Connectivity status
+- **Creates entities** for each cat and device
+
+### Cat entities (per cat)
+
+| Entity | Type | Description | Example states |
+|--------|------|-------------|----------------|
+| `binary_sensor.{cat}_surepet_{cat}_curfew` | Binary sensor | Curfew active state | `on` / `off` |
+| `switch.{cat}_surepet_{cat}_curfew_control` | Switch | Toggle curfew from HA | `on` / `off` |
+| `sensor.{cat}_surepet_{cat}_location` | Sensor | Cat location | `inside` / `outside` / `unknown` |
+
+### Device entities (per cat flap)
+
+| Entity | Type | Description | Example states |
+|--------|------|-------------|----------------|
+| `sensor.{device}_surepet_{device}_battery` | Sensor | Battery percentage | `85` |
+| `sensor.{device}_surepet_{device}_signal` | Sensor | WiFi signal (dBm) | `-72` |
+| `binary_sensor.{device}_surepet_{device}_online` | Binary sensor | Connectivity | `on` / `off` |
+
+### Verified entities
+
+With three cats (Bill, Sid, Fred) and one device (Conservatory), the addon creates 12 entities:
+
+```
+binary_sensor.bill_surepet_bill_curfew
+switch.bill_surepet_bill_curfew_control
+sensor.bill_surepet_bill_location
+
+binary_sensor.sid_surepet_sid_curfew
+switch.sid_surepet_sid_curfew_control
+sensor.sid_surepet_sid_location
+
+binary_sensor.fred_surepet_fred_curfew
+switch.fred_surepet_fred_curfew_control
+sensor.fred_surepet_fred_location
+
+sensor.conservatory_surepet_conservatory_battery
+sensor.conservatory_surepet_conservatory_signal
+binary_sensor.conservatory_surepet_conservatory_online
+```
 
 ## Web Dashboard
 
