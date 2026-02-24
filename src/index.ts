@@ -142,9 +142,9 @@ async function main() {
   const publicDir = join(__dirname, "..", "public");
   const dashboardPath = join(publicDir, "index.html");
   if (existsSync(dashboardPath)) {
-    const html = readFileSync(dashboardPath, "utf-8");
     fastify.get("/", async (_req, reply) => {
-      return reply.type("text/html").send(html);
+      const html = readFileSync(dashboardPath, "utf-8");
+      return reply.header("Cache-Control", "no-cache").type("text/html").send(html);
     });
   }
 

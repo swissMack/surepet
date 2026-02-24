@@ -321,8 +321,8 @@ let selectedDays = new Set([0,1,2,3,4,5,6]);
 let state = {cats:[],devices:[],events:[],lastPoll:null,activeSchedules:0};
 
 // ── API helpers ──
-const api = (path, opts={}) => fetch(path, {headers:{'Content-Type':'application/json'},...opts}).then(r=>r.json());
-const post = (path, body) => api(path, {method:'POST',body:body?JSON.stringify(body):undefined});
+const api = (path, opts={}) => fetch(path, opts).then(r=>{if(!r.ok)throw new Error(r.statusText);return r.json()});
+const post = (path, body) => api(path, {method:'POST',...(body?{headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}:{})});
 const del = (path) => api(path, {method:'DELETE'});
 
 // ── Toast ──
