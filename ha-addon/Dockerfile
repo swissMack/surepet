@@ -1,34 +1,21 @@
 FROM node:22-alpine
 
-# Install build dependencies for better-sqlite3
 RUN apk add --no-cache python3 make g++ curl
 
 WORKDIR /app
 
-# Download source (ADD with remote URL is never cached by Docker)
-ADD https://github.com/swissMack/Surepet/archive/refs/heads/main.tar.gz /tmp/surepet.tar.gz
-RUN tar xzf /tmp/surepet.tar.gz -C /tmp && mv /tmp/*urepet-main /tmp/surepet
+# Download and extract source in one step (curl bypasses Docker layer cache)
+RUN curl -sL https://github.com/swissMack/Surepet/archive/refs/heads/main.tar.gz \
+    | tar xz -C /app --strip-components=1
 
-# Install all dependencies (need devDeps for tsc)
-RUN cp /tmp/surepet/package.json /tmp/surepet/package-lock.json* ./
-RUN npm ci
+# Install dependencies, compile TypeScript, then prune dev deps
+RUN npm ci \
+    && npx tsc \
+    && npm prune --omit=dev \
+    && rm -rf src/ tsconfig.json
 
-# Compile TypeScript
-RUN cp -r /tmp/surepet/src/ ./src/
-RUN cp /tmp/surepet/tsconfig.json ./
-RUN npx tsc
-
-# Copy public assets
-RUN cp -r /tmp/surepet/public/ ./public/
-
-# Slim down: remove dev deps and build artifacts
-RUN npm prune --omit=dev
-RUN rm -rf src/ tsconfig.json /tmp/surepet /tmp/surepet.tar.gz
-
-# Copy startup script
 COPY run.sh /run.sh
 RUN chmod a+x /run.sh
-
 RUN mkdir -p /data
 
 CMD [ "/run.sh" ]
