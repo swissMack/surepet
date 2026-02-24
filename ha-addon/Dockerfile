@@ -4,8 +4,9 @@ RUN apk add --no-cache python3 make g++ curl
 
 WORKDIR /app
 
-# Cache-bust: bump this comment version to force re-download → v1.0.4
-RUN curl -sL https://github.com/swissMack/Surepet/archive/refs/heads/main.tar.gz \
+# Bump VERSION to bust Docker cache and pull fresh source
+ENV VERSION=1.0.6
+RUN curl -sL "https://github.com/swissMack/Surepet/archive/refs/heads/main.tar.gz?v=${VERSION}" \
     | tar xz -C /app --strip-components=1
 
 # Install dependencies, compile TypeScript, then prune dev deps
