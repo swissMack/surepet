@@ -4,9 +4,10 @@ RUN apk add --no-cache python3 make g++ curl
 
 WORKDIR /app
 
-# Bump VERSION to bust Docker cache and pull fresh source
-ENV VERSION=1.0.6
-RUN curl -sL "https://github.com/swissMack/Surepet/archive/refs/heads/main.tar.gz?v=${VERSION}" \
+# ARG invalidates all subsequent layers when its value changes
+ARG APP_VERSION=1.0.7
+RUN echo "Building version: ${APP_VERSION}" \
+    && curl -sL https://github.com/swissMack/Surepet/archive/refs/heads/main.tar.gz \
     | tar xz -C /app --strip-components=1
 
 # Install dependencies, compile TypeScript, then prune dev deps
