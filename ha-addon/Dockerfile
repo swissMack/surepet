@@ -1,5 +1,4 @@
-ARG BUILD_FROM=node:22-alpine
-FROM ${BUILD_FROM}
+FROM node:22-alpine
 
 # Install build dependencies for better-sqlite3
 RUN apk add --no-cache python3 make g++ git curl
