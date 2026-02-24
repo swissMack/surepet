@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>SurePet Curfew</title>
-<link rel="icon" type="image/x-icon" href="favicon.ico">
+<link rel="icon" type="image/x-icon" href="favicon.ico" id="favicon">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=DM+Sans:ital,wght@0,400;0,500;0,600;1,400&display=swap" rel="stylesheet">
 <link href="https://unpkg.com/primeicons@7.0.0/primeicons.css" rel="stylesheet">
@@ -309,7 +309,7 @@ body{
 
 <div class="header">
   <div class="header-left">
-    <div class="logo"><img src="paw-logo.png" alt="SurePet" style="width:22px;height:22px;filter:brightness(0) invert(1)"></div>
+    <div class="logo"><img id="logoImg" src="paw-logo.png" alt="SurePet" style="width:22px;height:22px;filter:brightness(0) invert(1)"></div>
     <h1>Sure<span>Pet</span> Curfew</h1>
   </div>
   <div style="display:flex;align-items:center;gap:.75rem;flex-wrap:wrap">
@@ -445,11 +445,15 @@ let editingScheduleId = null;
 let state = {cats:[],devices:[],events:[],eventTotal:0,lastPoll:null,activeSchedules:0};
 
 // ── API helpers ──
-// Detect HA ingress base path (e.g. /api/hassio_ingress/xxx/) so API calls route correctly
-const BASE = (() => {
-  const m = window.location.pathname.match(/^(\/api\/hassio_ingress\/[^/]+)/);
-  return m ? m[1] : '';
-})();
+// Ingress base path is injected server-side from X-Ingress-Path header
+const BASE = '__INGRESS_PATH__';
+// Fix static asset URLs for HA ingress
+if (BASE) {
+  const fav = document.getElementById('favicon');
+  if (fav) fav.href = BASE + '/favicon.ico';
+  const logo = document.getElementById('logoImg');
+  if (logo) logo.src = BASE + '/paw-logo.png';
+}
 const api = (path, opts={}) => fetch(BASE + path, opts).then(r=>{if(!r.ok)throw new Error(r.statusText);return r.json()});
 const post = (path, body) => api(path, {method:'POST',...(body?{headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}:{})});
 const put = (path, body) => api(path, {method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});

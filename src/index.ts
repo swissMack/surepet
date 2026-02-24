@@ -153,8 +153,11 @@ async function main() {
   const publicDir = join(__dirname, "..", "public");
   const dashboardPath = join(publicDir, "index.html");
   if (existsSync(dashboardPath)) {
-    fastify.get("/", async (_req, reply) => {
-      const html = readFileSync(dashboardPath, "utf-8");
+    fastify.get("/", async (req, reply) => {
+      let html = readFileSync(dashboardPath, "utf-8");
+      // Inject HA ingress base path so frontend API calls route correctly
+      const ingressPath = (req.headers["x-ingress-path"] as string) || "";
+      html = html.replace("__INGRESS_PATH__", ingressPath);
       return reply.header("Cache-Control", "no-cache").type("text/html").send(html);
     });
   }
