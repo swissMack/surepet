@@ -70,10 +70,18 @@ export function statusRoutes(fastify: FastifyInstance, deps: StatusDeps): void {
             })),
         };
       }),
-      devices: allDevices.map((d) => ({
-        ...d,
-        online: !!d.online,
-      })),
+      devices: allDevices.map((d) => {
+        let lastSeenAt: string | null = null;
+        try {
+          const raw = d.raw_data ? JSON.parse(d.raw_data) : null;
+          lastSeenAt = raw?.updated_at ?? null;
+        } catch { /* ignore */ }
+        return {
+          ...d,
+          online: !!d.online,
+          last_seen_at: lastSeenAt,
+        };
+      }),
       lastPoll,
       mqttConnected: mqtt.isConnected(),
       activeSchedules: scheduler.getActiveJobCount(),

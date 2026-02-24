@@ -195,6 +195,20 @@ body{
 .batt-good{background:linear-gradient(90deg,var(--emerald),var(--teal))}
 .batt-mid{background:linear-gradient(90deg,var(--amber),#0288d1)}
 .batt-low{background:linear-gradient(90deg,var(--rose),#ff7043)}
+.device-lock-actions{
+  display:flex;gap:.4rem;margin-top:1rem;padding-top:.85rem;border-top:1px solid var(--border);flex-wrap:wrap;
+}
+.btn-lock-mode{
+  font-family:'DM Sans',sans-serif;font-size:.7rem;font-weight:600;
+  padding:.4rem .65rem;border-radius:var(--radius-sm);
+  border:1px solid var(--border);background:var(--bg-input);color:var(--text-secondary);
+  cursor:pointer;transition:all .2s;display:flex;align-items:center;gap:.25rem;
+}
+.btn-lock-mode:hover{border-color:var(--amber);color:var(--amber)}
+.btn-lock-mode.active{background:var(--amber);color:#fff;border-color:var(--amber)}
+.btn-lock-mode.danger{border-color:var(--rose-dim);color:var(--rose)}
+.btn-lock-mode.danger:hover{background:var(--rose-dim);color:#fff}
+.btn-lock-mode.danger.active{background:var(--rose);color:#fff;border-color:var(--rose);box-shadow:0 0 12px #f4433644}
 
 /* ── New Schedule Form ── */
 .form-section{
@@ -589,6 +603,16 @@ function renderDevices() {
           <span class="stat-label">Voltage</span>
           <span class="stat-value">${d.battery_voltage?.toFixed(2) ?? '—'}V</span>
         </div>
+        <div class="stat" style="grid-column:1/-1">
+          <span class="stat-label">Last Seen</span>
+          <span class="stat-value" style="font-size:.85rem" title="${d.last_seen_at ? new Date(d.last_seen_at).toLocaleString() : ''}">${d.last_seen_at ? timeAgo(d.last_seen_at) + ' <span style=\"font-size:.7rem;color:var(--text-muted)\">' + new Date(d.last_seen_at).toLocaleString() + '</span>' : '—'}</span>
+        </div>
+      </div>
+      <div class="device-lock-actions">
+        <button class="btn-lock-mode ${d.lock_mode===0?'active':''}" onclick="setLockMode(${d.id},'unlocked',this)" title="Unlocked"><i class="pi pi-lock-open"></i> Unlocked</button>
+        <button class="btn-lock-mode ${d.lock_mode===1?'active':''}" onclick="setLockMode(${d.id},'locked_in',this)" title="Locked In"><i class="pi pi-sign-in"></i> In Only</button>
+        <button class="btn-lock-mode ${d.lock_mode===2?'active':''}" onclick="setLockMode(${d.id},'locked_out',this)" title="Locked Out"><i class="pi pi-sign-out"></i> Out Only</button>
+        <button class="btn-lock-mode danger ${d.lock_mode===3?'active':''}" onclick="setLockMode(${d.id},'locked_all',this)" title="Lock All"><i class="pi pi-lock"></i> Lock All</button>
       </div>
     </div>`;
   }).join('');
@@ -650,6 +674,16 @@ async function refresh() {
     eventsPage = 0;
     renderHeader(); renderCats(); renderDevices(); renderEvents(); renderCatSelect();
   } catch(e) { console.error('Refresh failed', e); }
+}
+
+async function setLockMode(deviceId, mode, btn) {
+  if (mode === 'locked_all' && !confirm('Lock ALL directions? No cat can enter or exit.')) return;
+  btn.disabled = true;
+  try {
+    await post(`/api/devices/${deviceId}/lock`, { mode });
+    toast(`Flap set to ${mode.replace(/_/g,' ')}`);
+    await refresh();
+  } catch(e) { toast('Failed: '+e.message, 'error'); await refresh(); }
 }
 
 async function toggleLocation(catId, current, btn) {
