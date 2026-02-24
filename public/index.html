@@ -77,6 +77,18 @@ body{
   margin-bottom:1rem;display:flex;align-items:center;gap:.5rem;
 }
 .section-title::before{content:'';display:block;width:3px;height:14px;border-radius:2px;background:var(--amber)}
+.section-title.collapsible{
+  cursor:pointer;user-select:none;justify-content:space-between;
+  background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);
+  padding:.75rem 1rem;margin-bottom:.5rem;transition:all .2s;
+}
+.section-title.collapsible:hover{color:var(--amber);border-color:var(--amber)}
+.section-title.collapsible.open{border-bottom-left-radius:0;border-bottom-right-radius:0;margin-bottom:0;border-bottom-color:transparent}
+.section-title.collapsible + .panel-body:not(.collapsed){border-top-left-radius:0;border-top-right-radius:0}
+.panel-arrow{font-size:.7rem;transition:transform .25s}
+.section-title.open .panel-arrow{transform:rotate(180deg)}
+.panel-body{transition:max-height .3s ease,opacity .25s ease,margin .3s ease;overflow:hidden}
+.panel-body.collapsed{max-height:0;opacity:0;margin-bottom:0;padding:0;border:none}
 .grid-cats{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:1rem;margin-bottom:2rem}
 
 /* ── Cat Card ── */
@@ -349,8 +361,11 @@ body{
   <div class="section-title">Devices</div>
   <div class="grid-devices" id="deviceGrid"></div>
 
-  <div class="section-title">New Schedule</div>
-  <div class="form-section">
+  <div class="section-title collapsible" onclick="togglePanel('schedPanel',this)">
+    <span>New Schedule</span>
+    <i class="pi pi-chevron-down panel-arrow"></i>
+  </div>
+  <div class="form-section panel-body collapsed" id="schedPanel">
     <form id="schedForm" class="form-grid">
       <div class="form-group">
         <label class="form-label">Cat</label>
@@ -677,7 +692,16 @@ function editSched(s) {
   renderDays();
   document.getElementById('fSubmit').textContent = 'Update Schedule';
   document.getElementById('fCancel').style.display = '';
-  document.querySelector('.form-section').scrollIntoView({behavior:'smooth'});
+  // Expand the panel if collapsed
+  const panel = document.getElementById('schedPanel');
+  const title = panel.previousElementSibling;
+  if (panel.classList.contains('collapsed')) {
+    panel.classList.remove('collapsed');
+    panel.style.maxHeight = panel.scrollHeight + 'px';
+    panel.style.opacity = '1';
+    title.classList.add('open');
+  }
+  panel.scrollIntoView({behavior:'smooth'});
 }
 
 function cancelEdit() {
@@ -703,6 +727,22 @@ async function doSync() {
 function toggleDay(i) {
   selectedDays.has(i) ? selectedDays.delete(i) : selectedDays.add(i);
   renderDays();
+}
+
+function togglePanel(id, titleEl) {
+  const panel = document.getElementById(id);
+  const isCollapsed = panel.classList.contains('collapsed');
+  if (isCollapsed) {
+    panel.classList.remove('collapsed');
+    panel.style.maxHeight = panel.scrollHeight + 'px';
+    panel.style.opacity = '1';
+    titleEl.classList.add('open');
+  } else {
+    panel.style.maxHeight = '0';
+    panel.style.opacity = '0';
+    panel.classList.add('collapsed');
+    titleEl.classList.remove('open');
+  }
 }
 
 function esc(s) { const d=document.createElement('div'); d.textContent=s||''; return d.innerHTML; }
