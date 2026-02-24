@@ -20,6 +20,7 @@ import { statusRoutes } from "./routes/status.routes.js";
 import { catsRoutes } from "./routes/cats.routes.js";
 import { curfewRoutes } from "./routes/curfew.routes.js";
 import { devicesRoutes } from "./routes/devices.routes.js";
+import { settingsRoutes } from "./routes/settings.routes.js";
 
 async function main() {
   const config = loadConfig();
@@ -41,6 +42,9 @@ async function main() {
     fastify.addHook("onRequest", async (request, reply) => {
       // Skip auth for /health
       if (request.url === "/health") return;
+
+      // Skip auth for HA ingress requests (Supervisor strips prefix before forwarding)
+      if (request.headers["x-ingress-path"]) return;
 
       const apiKey =
         request.headers["x-api-key"] ||
@@ -104,6 +108,9 @@ async function main() {
     fastify.log
   );
 
+  // Wire CurfewService into MQTT for bidirectional HA control
+  mqttService.setCurfewService(curfewService);
+
   // Register routes
   statusRoutes(fastify, {
     cats: catRepo,
@@ -137,6 +144,10 @@ async function main() {
     client,
   });
 
+  settingsRoutes(fastify, {
+    isHomeAssistant: config.isHomeAssistant,
+  });
+
   // Serve dashboard
   const __dirname = dirname(fileURLToPath(import.meta.url));
   const publicDir = join(__dirname, "..", "public");
@@ -147,6 +158,16 @@ async function main() {
       return reply.header("Cache-Control", "no-cache").type("text/html").send(html);
     });
   }
+
+  // Serve static files from public/
+  fastify.get("/favicon.svg", async (_req, reply) => {
+    const filePath = join(publicDir, "favicon.svg");
+    if (existsSync(filePath)) {
+      const content = readFileSync(filePath, "utf-8");
+      return reply.header("Cache-Control", "public, max-age=86400").type("image/svg+xml").send(content);
+    }
+    return reply.status(404).send();
+  });
 
   // Startup sequence
   try {

@@ -5,5 +5,5 @@ COPY dist/ ./dist/
 COPY public/ ./public/
 COPY node_modules/ ./node_modules/
 RUN mkdir -p /app/data
-EXPOSE 3333
+EXPOSE 3000
 CMD ["node", "dist/index.js"]

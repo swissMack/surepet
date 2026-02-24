@@ -3,12 +3,14 @@ import type { FastifyBaseLogger } from "fastify";
 import type { Config } from "../config.js";
 import type { CatRepository } from "../db/repositories/cat.repository.js";
 import type { DeviceRepository } from "../db/repositories/device.repository.js";
+import type { CurfewService } from "./curfew.service.js";
 
 export class MqttService {
   private mqttClient: mqtt.MqttClient | null = null;
   private log: FastifyBaseLogger;
   private prefix: string;
   private connected = false;
+  private curfewService: CurfewService | null = null;
 
   constructor(
     private config: Config["mqtt"],
@@ -18,6 +20,11 @@ export class MqttService {
   ) {
     this.log = log.child({ module: "mqtt" });
     this.prefix = config.topicPrefix;
+  }
+
+  /** Wire up the CurfewService for bidirectional control */
+  setCurfewService(service: CurfewService): void {
+    this.curfewService = service;
   }
 
   async connect(): Promise<void> {
@@ -52,6 +59,7 @@ export class MqttService {
         this.log.info("MQTT connected");
         this.publish(`${this.prefix}/status`, "online", true);
         this.publishDiscovery();
+        this.subscribeToCommands();
         resolve();
       });
 
@@ -69,7 +77,61 @@ export class MqttService {
       this.mqttClient!.on("reconnect", () => {
         this.log.info("MQTT reconnecting");
       });
+
+      this.mqttClient!.on("message", (topic, payload) => {
+        this.handleMessage(topic, payload.toString());
+      });
     });
+  }
+
+  /** Subscribe to command topics for bidirectional control */
+  private subscribeToCommands(): void {
+    if (!this.mqttClient) return;
+
+    const commandTopic = `${this.prefix}/cats/+/curfew/set`;
+    this.mqttClient.subscribe(commandTopic, { qos: 1 }, (err) => {
+      if (err) {
+        this.log.error({ err, topic: commandTopic }, "Failed to subscribe to command topic");
+      } else {
+        this.log.info({ topic: commandTopic }, "Subscribed to curfew command topic");
+      }
+    });
+  }
+
+  /** Handle incoming MQTT messages (curfew ON/OFF commands) */
+  private async handleMessage(topic: string, payload: string): Promise<void> {
+    // Match: {prefix}/cats/{catId}/curfew/set
+    const match = topic.match(new RegExp(`^${this.escapeRegex(this.prefix)}/cats/(\\d+)/curfew/set$`));
+    if (!match) return;
+
+    const catId = Number(match[1]);
+    const command = payload.trim().toUpperCase();
+
+    if (!this.curfewService) {
+      this.log.warn("CurfewService not set, ignoring MQTT command");
+      return;
+    }
+
+    this.log.info({ catId, command, topic }, "MQTT curfew command received");
+
+    try {
+      if (command === "ON") {
+        await this.curfewService.activateCurfew(catId);
+      } else if (command === "OFF") {
+        await this.curfewService.deactivateCurfew(catId);
+      } else {
+        this.log.warn({ command }, "Unknown curfew command, expected ON or OFF");
+        return;
+      }
+      // Publish updated state
+      this.publishState();
+    } catch (err) {
+      this.log.error({ err, catId, command }, "Failed to handle MQTT curfew command");
+    }
+  }
+
+  private escapeRegex(str: string): string {
+    return str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   }
 
   /** Publish HA MQTT auto-discovery messages */
@@ -78,8 +140,6 @@ export class MqttService {
     const allDevices = this.devices.getAll();
 
     for (const cat of allCats) {
-      const slugName = cat.name.toLowerCase().replace(/\s+/g, "_");
-
       // Curfew binary sensor
       this.publishDiscoveryConfig("binary_sensor", `cat_${cat.id}_curfew`, {
         name: `${cat.name} Curfew`,
@@ -89,6 +149,18 @@ export class MqttService {
         payload_off: "OFF",
         device_class: "lock",
         icon: "mdi:cat",
+        device: this.catDevice(cat.id, cat.name),
+      });
+
+      // Curfew switch (bidirectional control)
+      this.publishDiscoveryConfig("switch", `cat_${cat.id}_curfew_switch`, {
+        name: `${cat.name} Curfew Control`,
+        unique_id: `surepet_cat_${cat.id}_curfew_switch`,
+        state_topic: `${this.prefix}/cats/${cat.id}/curfew`,
+        command_topic: `${this.prefix}/cats/${cat.id}/curfew/set`,
+        payload_on: "ON",
+        payload_off: "OFF",
+        icon: "mdi:shield-lock",
         device: this.catDevice(cat.id, cat.name),
       });
 

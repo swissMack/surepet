@@ -49,6 +49,23 @@ export class EventRepository {
     return this.db.prepare(sql).all(...params) as EventRow[];
   }
 
+  count(eventType?: string, catId?: number): number {
+    let sql = "SELECT COUNT(*) as cnt FROM event_log WHERE 1=1";
+    const params: unknown[] = [];
+
+    if (eventType) {
+      sql += " AND event_type = ?";
+      params.push(eventType);
+    }
+    if (catId) {
+      sql += " AND cat_id = ?";
+      params.push(catId);
+    }
+
+    const row = this.db.prepare(sql).get(...params) as { cnt: number };
+    return row.cnt;
+  }
+
   getByCatId(catId: number, limit = 50): EventRow[] {
     return this.db
       .prepare(

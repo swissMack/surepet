@@ -51,17 +51,25 @@ export function statusRoutes(fastify: FastifyInstance, deps: StatusDeps): void {
     const lastPoll = cache.get("last_poll");
 
     return {
-      cats: allCats.map((cat) => ({
-        ...cat,
-        curfew_active: !!cat.curfew_active,
-        schedules: allSchedules
-          .filter((s) => s.cat_id === cat.id)
-          .map((s) => ({
-            ...s,
-            days_of_week: JSON.parse(s.days_of_week),
-            enabled: !!s.enabled,
-          })),
-      })),
+      cats: allCats.map((cat) => {
+        let lastActivity: string | null = null;
+        try {
+          const raw = cat.raw_data ? JSON.parse(cat.raw_data) : null;
+          lastActivity = raw?.status?.activity?.since ?? null;
+        } catch { /* ignore */ }
+        return {
+          ...cat,
+          curfew_active: !!cat.curfew_active,
+          last_activity: lastActivity,
+          schedules: allSchedules
+            .filter((s) => s.cat_id === cat.id)
+            .map((s) => ({
+              ...s,
+              days_of_week: JSON.parse(s.days_of_week),
+              enabled: !!s.enabled,
+            })),
+        };
+      }),
       devices: allDevices.map((d) => ({
         ...d,
         online: !!d.online,
@@ -86,11 +94,13 @@ export function statusRoutes(fastify: FastifyInstance, deps: StatusDeps): void {
     const catId = request.query.cat_id ? Number(request.query.cat_id) : undefined;
 
     const rows = events.getAll(limit, offset, eventType, catId);
+    const total = events.count(eventType, catId);
     return {
       events: rows.map((e) => ({
         ...e,
         details: e.details ? JSON.parse(e.details) : null,
       })),
+      total,
       limit,
       offset,
     };

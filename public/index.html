@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>SurePet Curfew</title>
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=DM+Sans:ital,wght@0,400;0,500;0,600;1,400&display=swap" rel="stylesheet">
 <link href="https://unpkg.com/primeicons@7.0.0/primeicons.css" rel="stylesheet">
@@ -245,6 +246,11 @@ body{
 /* ── Empty ── */
 .empty{text-align:center;padding:2rem;color:var(--text-muted);font-size:.85rem}
 
+/* ── Signal strength colours ── */
+.sig-good{color:var(--emerald)}
+.sig-mid{color:var(--amber)}
+.sig-weak{color:var(--rose)}
+
 /* ── Responsive ── */
 @media(max-width:500px){
   .header{padding:.75rem 1rem}
@@ -252,6 +258,45 @@ body{
   .grid-cats,.grid-devices{grid-template-columns:1fr}
   .cat-name{font-size:1.15rem}
 }
+
+/* ── Header nav icons ── */
+.header-nav{display:flex;align-items:center;gap:.35rem}
+.nav-btn{
+  background:none;border:1px solid var(--border);color:var(--text-secondary);
+  width:34px;height:34px;border-radius:8px;cursor:pointer;
+  display:grid;place-items:center;font-size:1rem;transition:all .2s;
+}
+.nav-btn:hover,.nav-btn.active{border-color:var(--amber);color:var(--amber);background:var(--amber-glow)}
+
+/* ── View toggle ── */
+.view{display:none}.view.active{display:block}
+
+/* ── Settings/Help page ── */
+.settings-grid{display:grid;grid-template-columns:1fr 1fr;gap:.75rem}
+@media(max-width:600px){.settings-grid{grid-template-columns:1fr}}
+.settings-section{
+  background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);
+  padding:1.25rem;margin-bottom:1rem;
+}
+.settings-section h3{font-family:'Outfit',sans-serif;font-weight:600;font-size:.95rem;margin-bottom:.75rem;display:flex;align-items:center;gap:.4rem}
+.help-content{
+  background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);
+  padding:1.5rem;line-height:1.7;font-size:.85rem;
+}
+.help-content h2{font-family:'Outfit',sans-serif;font-weight:700;font-size:1.1rem;margin:1.25rem 0 .5rem;color:var(--amber)}
+.help-content h2:first-child{margin-top:0}
+.help-content p{margin-bottom:.75rem;color:var(--text-secondary)}
+.help-content ul{margin-left:1.25rem;margin-bottom:.75rem;color:var(--text-secondary)}
+.help-content li{margin-bottom:.25rem}
+.help-content code{background:var(--bg-deep);padding:.15rem .4rem;border-radius:3px;font-size:.8rem}
+
+/* ── Skeleton loading ── */
+.skeleton{background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:1.25rem;position:relative;overflow:hidden}
+.skeleton::after{content:'';position:absolute;top:0;left:0;right:0;bottom:0;background:linear-gradient(90deg,transparent,#00000008,transparent);animation:shimmer 1.5s infinite}
+@keyframes shimmer{0%{transform:translateX(-100%)}100%{transform:translateX(100%)}}
+.skel-line{height:12px;background:var(--bg-deep);border-radius:4px;margin-bottom:.5rem}
+.skel-line.w60{width:60%}.skel-line.w40{width:40%}.skel-line.w80{width:80%}
+.skel-line.h20{height:20px}
 
 /* ── Animations ── */
 @keyframes fadeUp{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
@@ -264,13 +309,23 @@ body{
 
 <div class="header">
   <div class="header-left">
-    <div class="logo"><i class="pi pi-heart" style="color:#fff"></i></div>
+    <div class="logo"><img src="/favicon.svg" alt="SurePet" style="width:22px;height:22px;filter:brightness(0) invert(1)"></div>
     <h1>Sure<span>Pet</span> Curfew</h1>
   </div>
-  <div class="header-meta" id="headerMeta"></div>
+  <div style="display:flex;align-items:center;gap:.75rem;flex-wrap:wrap">
+    <div class="header-meta" id="headerMeta"></div>
+    <div class="header-nav">
+      <button class="nav-btn active" id="navDash" title="Dashboard" onclick="showView('dashboard')"><i class="pi pi-home"></i></button>
+      <button class="nav-btn" id="navSettings" title="Settings" onclick="showView('settings')"><i class="pi pi-cog"></i></button>
+      <button class="nav-btn" id="navHelp" title="Help" onclick="showView('help')"><i class="pi pi-question-circle"></i></button>
+    </div>
+  </div>
 </div>
 
 <div class="container">
+
+<!-- Dashboard View -->
+<div class="view active" id="viewDashboard">
   <div class="section-title">Cats</div>
   <div class="grid-cats" id="catGrid"></div>
 
@@ -300,8 +355,9 @@ body{
         <label class="form-label">Days</label>
         <div class="days-row" id="fDays"></div>
       </div>
-      <div class="form-group full">
+      <div class="form-group full" style="display:flex;gap:.5rem;align-items:center">
         <button type="submit" class="btn-submit" id="fSubmit">Create Schedule</button>
+        <button type="button" class="btn-submit" id="fCancel" style="background:#9e9e9e;display:none" onclick="cancelEdit()">Cancel</button>
       </div>
     </form>
   </div>
@@ -310,19 +366,88 @@ body{
   <div class="events-section">
     <div class="events-list" id="eventList"></div>
   </div>
+</div><!-- /viewDashboard -->
+
+<!-- Settings View -->
+<div class="view" id="viewSettings">
+  <div class="section-title"><i class="pi pi-cog"></i> Settings</div>
+  <div id="settingsContent">
+    <div class="empty"><i class="pi pi-spin pi-spinner"></i> Loading settings…</div>
+  </div>
 </div>
+
+<!-- Help View -->
+<div class="view" id="viewHelp">
+  <div class="section-title"><i class="pi pi-question-circle"></i> Help</div>
+  <div class="help-content">
+    <h2>What is SurePet Curfew?</h2>
+    <p>SurePet Curfew lets you create independent, per-cat curfew schedules for your Sure Petcare DualScan cat flaps. Each cat can have its own lock/unlock times on chosen days of the week.</p>
+
+    <h2>How Profiles Work</h2>
+    <ul>
+      <li><b>Full Access</b> — Cat can go in and out freely (profile 2)</li>
+      <li><b>Indoor Only</b> — Cat can come in but cannot go out (profile 3). This is the "curfew" mode.</li>
+      <li><b>Unmanaged</b> — No profile restrictions set (profile 0)</li>
+    </ul>
+
+    <h2>How Schedules Work</h2>
+    <p>A schedule defines a <b>lock time</b> and an <b>unlock time</b> for a cat on selected days.</p>
+    <ul>
+      <li>At <b>lock time</b>, the cat's profile is set to <b>Indoor Only</b> — it can come in but not go out.</li>
+      <li>At <b>unlock time</b>, the profile is set back to <b>Full Access</b>.</li>
+      <li><b>Overnight handling:</b> If unlock time is earlier than lock time (e.g. lock at 21:00, unlock at 07:00), the unlock happens the following morning.</li>
+    </ul>
+
+    <h2>Lock Modes</h2>
+    <ul>
+      <li><b>Unlocked</b> — Flap is fully open in both directions</li>
+      <li><b>Locked In</b> — Cats can go out but not come in</li>
+      <li><b>Locked Out</b> — Cats can come in but not go out</li>
+      <li><b>Locked All</b> — Flap is locked in both directions</li>
+    </ul>
+    <p>Note: Curfew uses per-cat tag profiles, not the device-level lock mode. The lock mode applies to all cats at the device level.</p>
+
+    <h2>Device Info</h2>
+    <ul>
+      <li><b>Battery:</b> Shown as percentage. Green &gt; 50%, amber 20-50%, red &lt; 20%.</li>
+      <li><b>Signal:</b> WiFi signal strength in dBm. Green &gt; -60, amber -60 to -80, red &lt; -80.</li>
+    </ul>
+
+    <h2>MQTT for Home Assistant</h2>
+    <p>When MQTT is enabled, the service publishes auto-discovery messages to Home Assistant:</p>
+    <ul>
+      <li>Binary sensors for each cat's curfew state (ON/OFF)</li>
+      <li>Sensors for location, battery, signal strength</li>
+      <li>Switch entities to control curfew from HA</li>
+    </ul>
+    <p>MQTT broker settings are auto-discovered when running as an HA addon.</p>
+
+    <h2>Troubleshooting</h2>
+    <ul>
+      <li><b>No cats/devices:</b> Check your Sure Petcare email and password in Settings. Click Sync to re-fetch.</li>
+      <li><b>Curfew not activating:</b> Ensure the cat is associated with a device (DualScan flap). Check the event log for errors.</li>
+      <li><b>MQTT not connecting:</b> Verify your broker host/port. In HA addon mode, MQTT is auto-discovered from Supervisor.</li>
+      <li><b>Schedule not running:</b> Ensure the schedule is enabled (play/pause icon). Check that the days of week include today.</li>
+    </ul>
+  </div>
+</div>
+
+</div><!-- /container -->
 
 <div class="toast" id="toast"></div>
 
 <script>
 const DAY_LABELS = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
 const LOCK_MODES = {0:'Unlocked',1:'Locked In',2:'Locked Out',3:'Locked All'};
+const PROFILE_NAMES = {0:'Unmanaged',2:'Full Access',3:'Indoor Only'};
 let selectedDays = new Set([0,1,2,3,4,5,6]);
-let state = {cats:[],devices:[],events:[],lastPoll:null,activeSchedules:0};
+let editingScheduleId = null;
+let state = {cats:[],devices:[],events:[],eventTotal:0,lastPoll:null,activeSchedules:0};
 
 // ── API helpers ──
 const api = (path, opts={}) => fetch(path, opts).then(r=>{if(!r.ok)throw new Error(r.statusText);return r.json()});
 const post = (path, body) => api(path, {method:'POST',...(body?{headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}:{})});
+const put = (path, body) => api(path, {method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
 const del = (path) => api(path, {method:'DELETE'});
 
 // ── Toast ──
@@ -349,7 +474,7 @@ function renderHeader() {
 
 function renderCats() {
   const grid = document.getElementById('catGrid');
-  if (!state.cats.length) { grid.innerHTML='<div class="empty">No cats found</div>'; return; }
+  if (!state.cats.length) { grid.innerHTML='<div class="empty"><i class="pi pi-info-circle"></i> No cats found. Click <b>Sync</b> to fetch data from Sure Petcare, or check your credentials in Settings.</div>'; return; }
   grid.innerHTML = state.cats.map(c => {
     const locClass = c.location==='inside'?'loc-inside':c.location==='outside'?'loc-outside':'loc-unknown';
     const locIcon = c.location==='inside'?'<i class="pi pi-home"></i>':c.location==='outside'?'<i class="pi pi-sun"></i>':'<i class="pi pi-question-circle"></i>';
@@ -362,6 +487,7 @@ function renderCats() {
           <span class="sched-days">${days}</span>
         </div>
         <div class="sched-actions">
+          <button class="btn-xs" title="Edit" onclick='editSched(${JSON.stringify(s).replace(/'/g,"&#39;")})'><i class="pi pi-pencil"></i></button>
           <button class="btn-xs ${s.enabled?'':'off'}" title="${s.enabled?'Disable':'Enable'}" onclick="toggleSched(${s.id})"><i class="pi ${s.enabled?'pi-pause':'pi-play'}"></i></button>
           <button class="btn-xs del" title="Delete" onclick="deleteSched(${s.id})"><i class="pi pi-times"></i></button>
         </div>
@@ -374,11 +500,12 @@ function renderCats() {
       </div>
       <div class="cat-status">
         <span class="curfew-badge ${c.curfew_active?'active':'inactive'}">${c.curfew_active?'<i class="pi pi-lock"></i> Curfew On':'<i class="pi pi-lock-open"></i> Free'}</span>
-        <span class="profile-tag">Profile ${c.current_profile}</span>
+        <span class="profile-tag">${PROFILE_NAMES[c.current_profile] || 'Profile '+c.current_profile}</span>
+        ${c.last_activity ? `<span class="profile-tag" title="${new Date(c.last_activity).toLocaleString()}"><i class="pi pi-clock"></i> ${timeAgo(c.last_activity)}</span>` : ''}
       </div>
       <div class="cat-actions">
-        <button class="btn btn-lock" ${c.curfew_active?'disabled':''} onclick="curfew(${c.id},'activate')"><i class="pi pi-lock"></i> Lock In</button>
-        <button class="btn btn-unlock" ${!c.curfew_active?'disabled':''} onclick="curfew(${c.id},'deactivate')"><i class="pi pi-lock-open"></i> Free</button>
+        <button class="btn btn-lock" ${c.curfew_active?'disabled':''} onclick="curfew(${c.id},'activate',this)"><i class="pi pi-lock"></i> Lock In</button>
+        <button class="btn btn-unlock" ${!c.curfew_active?'disabled':''} onclick="curfew(${c.id},'deactivate',this)"><i class="pi pi-lock-open"></i> Free</button>
       </div>
       ${(c.schedules||[]).length?`<div class="cat-schedules"><div class="cat-schedules-label">Schedules</div>${schedHtml}</div>`:''}
     </div>`;
@@ -387,12 +514,13 @@ function renderCats() {
 
 function renderDevices() {
   const grid = document.getElementById('deviceGrid');
-  if (!state.devices.length) { grid.innerHTML='<div class="empty">No devices found</div>'; return; }
+  if (!state.devices.length) { grid.innerHTML='<div class="empty"><i class="pi pi-info-circle"></i> No devices found. Sync to discover cat flaps from your Sure Petcare account.</div>'; return; }
   grid.innerHTML = state.devices.map(d => {
     const batt = d.battery_level ?? 0;
     const battClass = batt > 50 ? 'batt-good' : batt > 20 ? 'batt-mid' : 'batt-low';
     const sig = d.signal_strength ?? 0;
-    const sigBars = '<i class="pi pi-wifi"></i>';
+    const sigClass = sig > -60 ? 'sig-good' : sig > -80 ? 'sig-mid' : 'sig-weak';
+    const sigBars = `<i class="pi pi-wifi ${sigClass}"></i>`;
     return `<div class="device-card">
       <div class="device-top">
         <div class="device-name">${esc(d.name)}</div>
@@ -423,8 +551,8 @@ function renderDevices() {
 
 function renderEvents() {
   const list = document.getElementById('eventList');
-  if (!state.events.length) { list.innerHTML='<div class="empty">No events yet</div>'; return; }
-  list.innerHTML = state.events.map(e => {
+  if (!state.events.length) { list.innerHTML='<div class="empty"><i class="pi pi-info-circle"></i> No events recorded yet. Events will appear here as curfew schedules run and cat movements are detected.</div>'; return; }
+  let html = state.events.map(e => {
     const t = new Date(e.created_at+'Z');
     const time = t.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
     const det = e.details ? Object.entries(e.details).map(([k,v])=>`${k}: ${v}`).join(', ') : '';
@@ -434,6 +562,23 @@ function renderEvents() {
       <span class="event-detail">${esc(det)}</span>
     </div>`;
   }).join('');
+  const loaded = state.events.length;
+  if (loaded < state.eventTotal) {
+    html += `<div style="text-align:center;padding:.75rem"><button class="btn-sync" onclick="loadMoreEvents()" id="btnLoadMore"><i class="pi pi-arrow-down"></i> Load More (${loaded}/${state.eventTotal})</button></div>`;
+  }
+  list.innerHTML = html;
+}
+
+async function loadMoreEvents() {
+  const btn = document.getElementById('btnLoadMore');
+  if (btn) { btn.disabled = true; btn.textContent = 'Loading…'; }
+  eventsPage++;
+  try {
+    const res = await api(`/api/events?limit=${EVENTS_PER_PAGE}&offset=${eventsPage * EVENTS_PER_PAGE}`);
+    state.events = state.events.concat(res.events || []);
+    state.eventTotal = res.total || state.eventTotal;
+    renderEvents();
+  } catch(e) { toast('Failed to load events', 'error'); }
 }
 
 function renderCatSelect() {
@@ -450,22 +595,25 @@ function renderDays() {
 // ── Actions ──
 async function refresh() {
   try {
-    const [statusRes, eventsRes] = await Promise.all([api('/api/status'), api('/api/events?limit=20')]);
+    const [statusRes, eventsRes] = await Promise.all([api('/api/status'), api(`/api/events?limit=${EVENTS_PER_PAGE}&offset=0`)]);
     state.cats = statusRes.cats || [];
     state.devices = statusRes.devices || [];
     state.lastPoll = statusRes.lastPoll;
     state.activeSchedules = statusRes.activeSchedules || 0;
     state.events = eventsRes.events || [];
+    state.eventTotal = eventsRes.total || 0;
+    eventsPage = 0;
     renderHeader(); renderCats(); renderDevices(); renderEvents(); renderCatSelect();
   } catch(e) { console.error('Refresh failed', e); }
 }
 
-async function curfew(catId, action) {
+async function curfew(catId, action, btn) {
+  if (btn) { btn.disabled = true; btn.innerHTML = '<i class="pi pi-spin pi-spinner"></i>'; }
   try {
     await post(`/api/cats/${catId}/curfew/${action}`);
     toast(`Curfew ${action}d`);
     await refresh();
-  } catch(e) { toast('Failed: '+e.message, 'error'); }
+  } catch(e) { toast('Failed: '+e.message, 'error'); await refresh(); }
 }
 
 async function toggleSched(id) {
@@ -474,8 +622,33 @@ async function toggleSched(id) {
 }
 
 async function deleteSched(id) {
+  if (!confirm('Delete this schedule?')) return;
   try { await del(`/api/curfew/${id}`); toast('Schedule deleted'); await refresh(); }
   catch(e) { toast('Failed', 'error'); }
+}
+
+function editSched(s) {
+  editingScheduleId = s.id;
+  document.getElementById('fCat').value = s.cat_id;
+  document.getElementById('fName').value = s.name;
+  document.getElementById('fLock').value = s.lock_time;
+  document.getElementById('fUnlock').value = s.unlock_time;
+  selectedDays = new Set(s.days_of_week);
+  renderDays();
+  document.getElementById('fSubmit').textContent = 'Update Schedule';
+  document.getElementById('fCancel').style.display = '';
+  document.querySelector('.form-section').scrollIntoView({behavior:'smooth'});
+}
+
+function cancelEdit() {
+  editingScheduleId = null;
+  document.getElementById('fName').value = '';
+  document.getElementById('fLock').value = '21:00';
+  document.getElementById('fUnlock').value = '07:00';
+  selectedDays = new Set([0,1,2,3,4,5,6]);
+  renderDays();
+  document.getElementById('fSubmit').textContent = 'Create Schedule';
+  document.getElementById('fCancel').style.display = 'none';
 }
 
 async function doSync() {
@@ -493,28 +666,168 @@ function toggleDay(i) {
 
 function esc(s) { const d=document.createElement('div'); d.textContent=s||''; return d.innerHTML; }
 
+function timeAgo(dateStr) {
+  if (!dateStr) return '';
+  const now = Date.now();
+  const then = new Date(dateStr).getTime();
+  const diff = Math.floor((now - then) / 1000);
+  if (diff < 60) return 'just now';
+  if (diff < 3600) return Math.floor(diff/60) + ' min ago';
+  if (diff < 86400) return Math.floor(diff/3600) + 'h ago';
+  return Math.floor(diff/86400) + 'd ago';
+}
+
+let eventsPage = 0;
+const EVENTS_PER_PAGE = 20;
+
 // ── Form ──
 document.getElementById('schedForm').addEventListener('submit', async (e) => {
   e.preventDefault();
+  const lockTime = document.getElementById('fLock').value;
+  const unlockTime = document.getElementById('fUnlock').value;
+  if (lockTime === unlockTime) { toast('Lock and unlock times cannot be the same', 'error'); return; }
+  if (selectedDays.size === 0) { toast('Select at least one day', 'error'); return; }
+
   const btn = document.getElementById('fSubmit');
-  btn.disabled = true; btn.textContent = 'Creating…';
+  const isEdit = editingScheduleId !== null;
+  btn.disabled = true; btn.textContent = isEdit ? 'Updating…' : 'Creating…';
   try {
-    await post('/api/curfew', {
-      cat_id: Number(document.getElementById('fCat').value),
+    const body = {
       name: document.getElementById('fName').value,
-      lock_time: document.getElementById('fLock').value,
-      unlock_time: document.getElementById('fUnlock').value,
+      lock_time: lockTime,
+      unlock_time: unlockTime,
       days_of_week: [...selectedDays].sort(),
-    });
-    toast('Schedule created');
+    };
+    if (isEdit) {
+      await put(`/api/curfew/${editingScheduleId}`, body);
+      toast('Schedule updated');
+    } else {
+      body.cat_id = Number(document.getElementById('fCat').value);
+      await post('/api/curfew', body);
+      toast('Schedule created');
+    }
     document.getElementById('fName').value = '';
+    document.getElementById('fLock').value = '21:00';
+    document.getElementById('fUnlock').value = '07:00';
+    selectedDays = new Set([0,1,2,3,4,5,6]);
+    renderDays();
+    editingScheduleId = null;
+    btn.textContent = 'Create Schedule';
     await refresh();
   } catch(e) { toast('Failed: '+e.message, 'error'); }
-  btn.disabled = false; btn.textContent = 'Create Schedule';
+  btn.disabled = false;
+  if (!editingScheduleId) btn.textContent = 'Create Schedule';
 });
+
+// ── View switching ──
+function showView(name) {
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  const viewId = 'view' + name.charAt(0).toUpperCase() + name.slice(1);
+  document.getElementById(viewId).classList.add('active');
+  const btnId = 'nav' + name.charAt(0).toUpperCase() + name.slice(1);
+  const btn = document.getElementById(btnId);
+  if (btn) btn.classList.add('active');
+  if (name === 'settings') loadSettings();
+}
+
+async function loadSettings() {
+  const container = document.getElementById('settingsContent');
+  container.innerHTML = '<div class="empty"><i class="pi pi-spin pi-spinner"></i> Loading settings…</div>';
+  try {
+    const s = await api('/api/settings');
+    const ro = s.readonly;
+    container.innerHTML = `
+      <form id="settingsForm" class="settings-section">
+        <h3><i class="pi pi-user"></i> Sure Petcare Credentials</h3>
+        <div class="settings-grid">
+          <div class="form-group">
+            <label class="form-label">Email</label>
+            <input class="form-input" id="sEmail" value="${esc(s.email||'')}" ${ro?'disabled':''}>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Password</label>
+            <input class="form-input" type="password" id="sPassword" value="${esc(s.password||'')}" placeholder="Enter new password" ${ro?'disabled':''}>
+          </div>
+        </div>
+        <h3 style="margin-top:1rem"><i class="pi pi-sliders-h"></i> General</h3>
+        <div class="settings-grid">
+          <div class="form-group">
+            <label class="form-label">Poll Interval (seconds)</label>
+            <input class="form-input" type="number" id="sPoll" value="${s.poll_interval||60}" min="10" max="3600" ${ro?'disabled':''}>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Timezone</label>
+            <input class="form-input" id="sTz" value="${esc(s.timezone||'Europe/Amsterdam')}" ${ro?'disabled':''}>
+          </div>
+          <div class="form-group">
+            <label class="form-label">API Key</label>
+            <input class="form-input" id="sApiKey" value="${esc(s.api_key||'')}" placeholder="Optional" ${ro?'disabled':''}>
+          </div>
+        </div>
+        <h3 style="margin-top:1rem"><i class="pi pi-share-alt"></i> MQTT</h3>
+        <div class="settings-grid">
+          <div class="form-group">
+            <label class="form-label">MQTT Enabled</label>
+            <select class="form-select" id="sMqttEnabled" ${ro?'disabled':''}>
+              <option value="true" ${s.mqtt_enabled?'selected':''}>Yes</option>
+              <option value="false" ${!s.mqtt_enabled?'selected':''}>No</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">MQTT Host</label>
+            <input class="form-input" id="sMqttHost" value="${esc(s.mqtt_host||'')}" ${ro?'disabled':''}>
+          </div>
+          <div class="form-group">
+            <label class="form-label">MQTT Port</label>
+            <input class="form-input" type="number" id="sMqttPort" value="${s.mqtt_port||1883}" ${ro?'disabled':''}>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Topic Prefix</label>
+            <input class="form-input" id="sMqttPrefix" value="${esc(s.mqtt_topic_prefix||'surepet')}" ${ro?'disabled':''}>
+          </div>
+        </div>
+        ${ro
+          ? '<p style="margin-top:1rem;font-size:.8rem;color:var(--text-muted)"><i class="pi pi-info-circle"></i> Settings are managed by Home Assistant. Edit them in the addon configuration page.</p>'
+          : '<div style="margin-top:1rem;display:flex;gap:.5rem"><button type="submit" class="btn-submit">Save Settings</button></div>'
+        }
+      </form>
+    `;
+    if (!ro) {
+      document.getElementById('settingsForm').addEventListener('submit', saveSettings);
+    }
+  } catch(e) { container.innerHTML = '<div class="empty">Failed to load settings.</div>'; }
+}
+
+async function saveSettings(e) {
+  e.preventDefault();
+  try {
+    await put('/api/settings', {
+      email: document.getElementById('sEmail').value,
+      password: document.getElementById('sPassword').value,
+      poll_interval: Number(document.getElementById('sPoll').value),
+      timezone: document.getElementById('sTz').value,
+      api_key: document.getElementById('sApiKey').value,
+      mqtt_enabled: document.getElementById('sMqttEnabled').value,
+      mqtt_host: document.getElementById('sMqttHost').value,
+      mqtt_port: Number(document.getElementById('sMqttPort').value),
+      mqtt_topic_prefix: document.getElementById('sMqttPrefix').value,
+    });
+    toast('Settings saved. Restart service to apply changes.');
+  } catch(e) { toast('Failed to save settings: '+e.message, 'error'); }
+}
+
+// ── Skeleton loaders ──
+function showSkeletons() {
+  const skel = `<div class="skeleton"><div class="skel-line h20 w60"></div><div class="skel-line w40"></div><div class="skel-line w80"></div></div>`;
+  document.getElementById('catGrid').innerHTML = skel+skel+skel;
+  document.getElementById('deviceGrid').innerHTML = skel;
+  document.getElementById('eventList').innerHTML = '<div class="empty" style="padding:1.5rem"><i class="pi pi-spin pi-spinner"></i> Loading events…</div>';
+}
 
 // ── Init ──
 renderDays();
+showSkeletons();
 refresh();
 setInterval(refresh, 30000);
 </script>
