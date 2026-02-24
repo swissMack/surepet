@@ -1,6 +1,6 @@
 name: "SurePet Per-Cat Curfew"
 description: "Independent curfew schedules per cat for Sure Petcare DualScan cat flaps"
-version: "1.0.4"
+version: "1.0.5"
 slug: "surepet-curfew"
 url: "https://github.com/swissMack/Surepet"
 arch:
