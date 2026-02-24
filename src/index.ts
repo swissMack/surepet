@@ -169,6 +169,33 @@ async function main() {
     return reply.status(404).send();
   });
 
+  fastify.get("/favicon.svg", async (_req, reply) => {
+    const filePath = join(publicDir, "favicon.svg");
+    if (existsSync(filePath)) {
+      const content = readFileSync(filePath, "utf-8");
+      return reply.header("Cache-Control", "public, max-age=86400").type("image/svg+xml").send(content);
+    }
+    return reply.status(404).send();
+  });
+
+  fastify.get("/favicon.ico", async (_req, reply) => {
+    const filePath = join(publicDir, "favicon.ico");
+    if (existsSync(filePath)) {
+      const content = readFileSync(filePath);
+      return reply.header("Cache-Control", "public, max-age=86400").type("image/x-icon").send(content);
+    }
+    return reply.status(404).send();
+  });
+
+  fastify.get("/favicon.png", async (_req, reply) => {
+    const filePath = join(publicDir, "favicon.png");
+    if (existsSync(filePath)) {
+      const content = readFileSync(filePath);
+      return reply.header("Cache-Control", "public, max-age=86400").type("image/png").send(content);
+    }
+    return reply.status(404).send();
+  });
+
   // Startup sequence
   try {
     // 1. Authenticate and sync state
