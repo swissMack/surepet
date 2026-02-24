@@ -37,8 +37,9 @@ export class StateManager {
       "Starting poll loop"
     );
     this.pollTimer = setInterval(() => {
+      this.log.debug("Poll tick");
       this.poll().catch((err) => {
-        this.log.error({ err }, "Poll failed");
+        this.log.error({ err: err?.message ?? err, stack: err?.stack }, "Poll failed");
       });
     }, this.pollIntervalMs);
   }
@@ -72,10 +73,19 @@ export class StateManager {
     }
 
     // Sync pets/cats
+    const catStates: Record<string, string> = {};
     for (const pet of pets) {
       this.syncPet(pet, devices);
+      const loc =
+        pet.status?.activity?.where === PET_LOCATION.INSIDE
+          ? "inside"
+          : pet.status?.activity?.where === PET_LOCATION.OUTSIDE
+            ? "outside"
+            : "unknown";
+      catStates[pet.name] = loc;
     }
 
+    this.log.info({ cats: catStates, deviceCount: devices.length }, "Poll complete");
     this.cache.set("last_poll", new Date().toISOString());
   }
 
