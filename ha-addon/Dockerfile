@@ -1,8 +1,8 @@
-ARG BUILD_FROM
+ARG BUILD_FROM=node:22-alpine
 FROM ${BUILD_FROM}
 
-# Install Node.js, npm, and build dependencies for better-sqlite3
-RUN apk add --no-cache nodejs npm python3 make g++ git
+# Install build dependencies for better-sqlite3
+RUN apk add --no-cache python3 make g++ git curl
 
 WORKDIR /app
 
@@ -21,15 +21,14 @@ RUN npx tsc
 # Copy public assets
 RUN cp -r /tmp/surepet/public/ ./public/
 
-# Remove dev dependencies and build artifacts to slim the image
+# Remove dev dependencies and build artifacts
 RUN npm prune --omit=dev
 RUN rm -rf src/ tsconfig.json /tmp/surepet
 
-# Copy addon run script
+# Copy startup script
 COPY run.sh /run.sh
 RUN chmod a+x /run.sh
 
-# Data directory for SQLite database
 RUN mkdir -p /data
 
 CMD [ "/run.sh" ]
