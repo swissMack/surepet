@@ -139,6 +139,12 @@ body{
 .curfew-badge.active{background:#f43f5e20;color:var(--rose)}
 .curfew-badge.inactive{background:#10b98118;color:var(--emerald)}
 .profile-tag{font-size:.7rem;color:var(--text-muted)}
+.missing-banner{
+  display:flex;align-items:center;justify-content:space-between;gap:.5rem;
+  margin-bottom:.85rem;padding:.5rem .65rem;border-radius:8px;
+  background:#f59e0b18;color:#d97706;font-size:.75rem;font-weight:600;
+}
+.missing-banner .btn-xs{color:var(--rose)}
 .cat-actions{display:flex;gap:.5rem;margin-bottom:.85rem}
 .btn{
   font-family:'DM Sans',sans-serif;font-size:.75rem;font-weight:600;
@@ -557,6 +563,10 @@ function renderCats() {
           <button class="loc-switch ${isOut?'outside':''}" onclick="toggleLocation(${c.id},'${c.location}',this)" title="Toggle location"></button>
         </div>
       </div>
+      ${c.missing_since ? `<div class="missing-banner" title="Not in your Sure Petcare account since ${new Date(c.missing_since+'Z').toLocaleString()}">
+        <span><i class="pi pi-exclamation-triangle"></i> Removed from SurePet</span>
+        <button class="btn-xs del" title="Remove from this add-on" onclick="removeCat(${c.id})"><i class="pi pi-trash"></i> Remove</button>
+      </div>` : ''}
       <div class="cat-status">
         <span class="curfew-badge ${c.curfew_active?'active':'inactive'}">${c.curfew_active?'<i class="pi pi-lock"></i> Curfew On':'<i class="pi pi-lock-open"></i> Free'}</span>
         <span class="profile-tag">${PROFILE_NAMES[c.current_profile] || 'Profile '+c.current_profile}</span>
@@ -708,6 +718,17 @@ async function curfew(catId, action, btn) {
 async function toggleSched(id) {
   try { await post(`/api/curfew/${id}/toggle`); toast('Schedule toggled'); await refresh(); }
   catch(e) { toast('Failed', 'error'); }
+}
+
+async function removeCat(id) {
+  const c = state.cats.find(x=>x.id===id);
+  const n = (c?.schedules||[]).length;
+  const msg = `Remove ${c?.name||'this pet'} from the add-on?` +
+    (n ? `\n\nIts ${n} curfew schedule${n!==1?'s':''} will be deleted too.` : '') +
+    `\nIts Home Assistant entities are removed; event history is kept.`;
+  if (!confirm(msg)) return;
+  try { await del(`/api/cats/${id}`); toast(`${c?.name||'Pet'} removed`); await refresh(); }
+  catch(e) { toast('Failed: '+e.message, 'error'); }
 }
 
 async function deleteSched(id) {

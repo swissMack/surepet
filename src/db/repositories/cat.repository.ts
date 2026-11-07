@@ -10,16 +10,19 @@ export interface CatRow {
   curfew_active: number;
   raw_data: string | null;
   updated_at: string;
+  /** Set while the pet is absent from the Sure Petcare API; null when present. */
+  missing_since: string | null;
 }
 
 export class CatRepository {
   constructor(private db: Database.Database) {}
 
-  upsert(cat: Omit<CatRow, "updated_at">): void {
+  /** Insert/update a pet seen in the API. Seeing it clears missing_since. */
+  upsert(cat: Omit<CatRow, "updated_at" | "missing_since">): void {
     this.db
       .prepare(
-        `INSERT INTO cats (id, name, tag_id, device_id, location, current_profile, curfew_active, raw_data, updated_at)
-       VALUES (@id, @name, @tag_id, @device_id, @location, @current_profile, @curfew_active, @raw_data, datetime('now'))
+        `INSERT INTO cats (id, name, tag_id, device_id, location, current_profile, curfew_active, raw_data, updated_at, missing_since)
+       VALUES (@id, @name, @tag_id, @device_id, @location, @current_profile, @curfew_active, @raw_data, datetime('now'), NULL)
        ON CONFLICT(id) DO UPDATE SET
          name = @name,
          tag_id = @tag_id,
@@ -28,9 +31,38 @@ export class CatRepository {
          current_profile = @current_profile,
          curfew_active = @curfew_active,
          raw_data = @raw_data,
-         updated_at = datetime('now')`
+         updated_at = datetime('now'),
+         missing_since = NULL`
       )
       .run(cat);
+  }
+
+  /** Flag a pet as absent from the API (keeps the first time it went missing). */
+  markMissing(id: number): void {
+    this.db
+      .prepare(
+        "UPDATE cats SET missing_since = COALESCE(missing_since, datetime('now')) WHERE id = ?"
+      )
+      .run(id);
+  }
+
+  /**
+   * Delete a pet and its curfew schedules. Event history is kept but
+   * detached (cat_id = NULL) — event details already carry the name.
+   * Returns the ids of the deleted schedules so callers can stop their jobs.
+   */
+  remove(id: number): number[] {
+    return this.db.transaction(() => {
+      const scheduleIds = (
+        this.db
+          .prepare("SELECT id FROM curfew_schedules WHERE cat_id = ?")
+          .all(id) as { id: number }[]
+      ).map((r) => r.id);
+      this.db.prepare("DELETE FROM curfew_schedules WHERE cat_id = ?").run(id);
+      this.db.prepare("UPDATE event_log SET cat_id = NULL WHERE cat_id = ?").run(id);
+      this.db.prepare("DELETE FROM cats WHERE id = ?").run(id);
+      return scheduleIds;
+    })();
   }
 
   getAll(): CatRow[] {

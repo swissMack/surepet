@@ -16,6 +16,7 @@ import { StateManager } from "./services/state-manager.js";
 import { CurfewService } from "./services/curfew.service.js";
 import { Scheduler } from "./services/scheduler.js";
 import { MqttService } from "./services/mqtt.service.js";
+import { CatRemovalService } from "./services/cat-removal.service.js";
 import { statusRoutes } from "./routes/status.routes.js";
 import { catsRoutes } from "./routes/cats.routes.js";
 import { curfewRoutes } from "./routes/curfew.routes.js";
@@ -111,6 +112,17 @@ async function main() {
   // Wire CurfewService into MQTT for bidirectional HA control
   mqttService.setCurfewService(curfewService);
 
+  // Removal of pets deleted in the official app (auto via poll, or manual)
+  const catRemoval = new CatRemovalService(
+    catRepo,
+    scheduleRepo,
+    eventRepo,
+    scheduler,
+    mqttService,
+    fastify.log
+  );
+  stateManager.setRemovalService(catRemoval);
+
   // Register routes
   statusRoutes(fastify, {
     cats: catRepo,
@@ -130,6 +142,7 @@ async function main() {
     schedules: scheduleRepo,
     curfewService,
     mqtt: mqttService,
+    catRemoval,
   });
 
   curfewRoutes(fastify, {

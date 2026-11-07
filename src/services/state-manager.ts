@@ -6,11 +6,18 @@ import { EventRepository } from "../db/repositories/event.repository.js";
 import { CacheRepository } from "../db/repositories/cache.repository.js";
 import { PRODUCTS, PET_LOCATION } from "../surepet-client/constants.js";
 import type { Device, Pet } from "../surepet-client/types.js";
+import type { CatRemovalService } from "./cat-removal.service.js";
+
+/** Consecutive polls a pet must be absent before it is auto-removed. */
+const MISSING_POLLS_BEFORE_REMOVAL = 3;
 
 export class StateManager {
   private pollTimer: ReturnType<typeof setInterval> | null = null;
   private log: FastifyBaseLogger;
   private householdId: number | null = null;
+  private removal: CatRemovalService | null = null;
+  /** catId → consecutive polls the pet has been absent from the API */
+  private missingPolls = new Map<number, number>();
 
   constructor(
     private client: SurePetClient,
@@ -22,6 +29,10 @@ export class StateManager {
     log: FastifyBaseLogger
   ) {
     this.log = log.child({ module: "state-manager" });
+  }
+
+  setRemovalService(service: CatRemovalService): void {
+    this.removal = service;
   }
 
   async initialSync(): Promise<void> {
@@ -84,6 +95,8 @@ export class StateManager {
             : "unknown";
       catStates[pet.name] = loc;
     }
+
+    this.reconcileRemovedPets(pets, households.length > 0);
 
     this.log.info({ cats: catStates, deviceCount: devices.length }, "Poll complete");
     this.cache.set("last_poll", new Date().toISOString());
@@ -198,6 +211,60 @@ export class StateManager {
         pet.id,
         deviceId ?? undefined
       );
+    }
+  }
+
+  /**
+   * Pets deleted in the official app simply stop appearing in the dashboard.
+   * Flag them as missing; after MISSING_POLLS_BEFORE_REMOVAL consecutive
+   * absences remove them — unless they still have an enabled schedule, in
+   * which case they stay flagged for the user to remove by hand.
+   */
+  private reconcileRemovedPets(pets: Pet[], householdOk: boolean): void {
+    // A response with no household or no pets at all looks like an API glitch,
+    // not a real removal — never prune on it.
+    if (!householdOk || !Array.isArray(pets) || pets.length === 0) {
+      if (this.cats.getAll().length > 0) {
+        this.log.warn(
+          { households: householdOk, pets: Array.isArray(pets) ? pets.length : null },
+          "Dashboard returned no pets — skipping removed-pet check"
+        );
+      }
+      return;
+    }
+
+    const seen = new Set(pets.map((p) => p.id));
+    for (const id of this.missingPolls.keys()) {
+      if (seen.has(id)) this.missingPolls.delete(id);
+    }
+
+    for (const cat of this.cats.getAll()) {
+      if (seen.has(cat.id)) continue;
+
+      if (!cat.missing_since) {
+        this.cats.markMissing(cat.id);
+        this.log.info(
+          { catId: cat.id, name: cat.name },
+          "Cat no longer in Sure Petcare account"
+        );
+      }
+
+      const count = (this.missingPolls.get(cat.id) ?? 0) + 1;
+      this.missingPolls.set(cat.id, count);
+      if (count < MISSING_POLLS_BEFORE_REMOVAL || !this.removal) continue;
+
+      if (this.removal.hasEnabledSchedules(cat.id)) {
+        if (count === MISSING_POLLS_BEFORE_REMOVAL) {
+          this.log.warn(
+            { catId: cat.id, name: cat.name },
+            "Cat removed from Sure Petcare but has enabled schedules — kept; remove it in the UI"
+          );
+        }
+        continue;
+      }
+
+      this.removal.remove(cat, "auto");
+      this.missingPolls.delete(cat.id);
     }
   }
 

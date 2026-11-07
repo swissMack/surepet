@@ -244,6 +244,28 @@ export class MqttService {
     };
   }
 
+  /**
+   * Remove a cat's HA entities: an empty retained discovery config makes HA
+   * delete the entity, and empty retained state clears the broker.
+   */
+  removeCat(catId: number): void {
+    if (!this.connected) {
+      this.log.warn({ catId }, "MQTT not connected — cat entities not removed from HA");
+      return;
+    }
+    const discovery: [string, string][] = [
+      ["binary_sensor", `cat_${catId}_curfew`],
+      ["switch", `cat_${catId}_curfew_switch`],
+      ["sensor", `cat_${catId}_location`],
+    ];
+    for (const [component, objectId] of discovery) {
+      this.publish(`homeassistant/${component}/${objectId}/config`, "", true);
+    }
+    this.publish(`${this.prefix}/cats/${catId}/curfew`, "", true);
+    this.publish(`${this.prefix}/cats/${catId}/location`, "", true);
+    this.log.info({ catId }, "MQTT entities removed for cat");
+  }
+
   /** Publish all current state to MQTT topics */
   publishState(): void {
     if (!this.connected) return;

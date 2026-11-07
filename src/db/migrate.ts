@@ -62,6 +62,13 @@ const migrations: { version: number; name: string; sql: string }[] = [
       );
     `,
   },
+  {
+    version: 2,
+    name: "cats_missing_since",
+    // Set when a pet stops appearing in the Sure Petcare dashboard (removed
+    // in the official app); cleared again if it reappears.
+    sql: `ALTER TABLE cats ADD COLUMN missing_since TEXT;`,
+  },
 ];
 
 export function runMigrations(db: Database.Database): void {

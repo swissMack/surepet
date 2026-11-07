@@ -4,6 +4,7 @@ import type { EventRepository } from "../db/repositories/event.repository.js";
 import type { ScheduleRepository } from "../db/repositories/schedule.repository.js";
 import type { CurfewService } from "../services/curfew.service.js";
 import type { MqttService } from "../services/mqtt.service.js";
+import type { CatRemovalService } from "../services/cat-removal.service.js";
 
 interface CatsDeps {
   cats: CatRepository;
@@ -11,10 +12,27 @@ interface CatsDeps {
   schedules: ScheduleRepository;
   curfewService: CurfewService;
   mqtt: MqttService;
+  catRemoval: CatRemovalService;
 }
 
 export function catsRoutes(fastify: FastifyInstance, deps: CatsDeps): void {
-  const { cats, events, schedules, curfewService, mqtt } = deps;
+  const { cats, events, schedules, curfewService, mqtt, catRemoval } = deps;
+
+  // Remove a pet that has been deleted from the Sure Petcare account.
+  // Pets still in the account are refused — the next poll would re-add them.
+  fastify.delete<{ Params: { id: string } }>("/api/cats/:id", async (request, reply) => {
+    const cat = cats.getById(Number(request.params.id));
+    if (!cat) {
+      return reply.status(404).send({ error: "Cat not found" });
+    }
+    if (!cat.missing_since) {
+      return reply.status(409).send({
+        error: "Cat is still in your Sure Petcare account — remove it in the official app first",
+      });
+    }
+    const schedulesDeleted = catRemoval.remove(cat, "manual");
+    return { status: "cat_removed", catId: cat.id, schedulesDeleted };
+  });
 
   fastify.get("/api/cats", async () => {
     const allCats = cats.getAll();
