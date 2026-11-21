@@ -8,6 +8,8 @@ SurePet Per-Cat Curfew — a Node.js/TypeScript application that manages indepen
 
 ## Commands
 
+Requires Node.js ≥22 (see `package.json` `engines`). Note: pve host runs Node 20 — standalone deploy uses the host's Node, so verify before upgrading `engines`.
+
 ```bash
 npm run dev          # Live-reload dev server (tsx watch)
 npm run build        # Compile TypeScript → dist/
@@ -16,7 +18,7 @@ npm run lint         # ESLint check src/
 npm run typecheck    # Type-check without emitting
 ```
 
-No test framework is configured.
+No test framework is configured. For schedule/curfew logic, manually verify by creating a short-window schedule and watching `journalctl -u surepet` (or addon logs) for cron fire + tag-profile API calls.
 
 ### Deploy Standalone (pve)
 
@@ -75,6 +77,11 @@ REST API under `/api/`: status, cats (CRUD + curfew control), curfew (schedule C
 
 Single-file embedded SPA (vanilla HTML/CSS/JS, no build step). Server injects `X-Ingress-Path` header value as `__INGRESS_PATH__` token for HA ingress routing. Modify this file directly.
 
+### Docker artifacts
+
+- **Root `Dockerfile` + `docker-compose.yml`** — standalone containerised deploy (not used on pve; pve runs the compiled output directly via systemd).
+- **`ha-addon/Dockerfile`** — HA addon build, invoked by HA Supervisor. This is the one that matters for the HA addon update flow documented in memory.
+
 ### HA Addon — `ha-addon/`
 
 - `config.yaml`: Addon metadata, options schema, version (bump to force rebuild)
@@ -89,3 +96,4 @@ Single-file embedded SPA (vanilla HTML/CSS/JS, no build step). Server injects `X
 - **MQTT state publishing**: After any curfew change (manual or scheduled), call `mqtt.publishState()` to keep HA in sync.
 - **HA ingress**: The server reads `X-Ingress-Path` header and string-replaces `__INGRESS_PATH__` in the HTML response. All frontend API calls must prepend this path.
 - **Migrations are append-only**: Add new objects to the `migrations` array in `migrate.ts`. Never modify existing migration entries.
+- **User-facing docs live in `README.md`**: addon install steps, config option table, and MQTT entity list. Cross-check before editing config options or MQTT topics — README examples may need updating too.
