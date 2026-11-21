@@ -14,7 +14,7 @@ import { CacheRepository } from "./db/repositories/cache.repository.js";
 import { SurePetClient } from "./surepet-client/client.js";
 import { StateManager } from "./services/state-manager.js";
 import { CurfewService } from "./services/curfew.service.js";
-import { Scheduler } from "./services/scheduler.js";
+import { Scheduler, type HomeLocation } from "./services/scheduler.js";
 import { MqttService } from "./services/mqtt.service.js";
 import { CatRemovalService } from "./services/cat-removal.service.js";
 import { statusRoutes } from "./routes/status.routes.js";
@@ -22,6 +22,40 @@ import { catsRoutes } from "./routes/cats.routes.js";
 import { curfewRoutes } from "./routes/curfew.routes.js";
 import { devicesRoutes } from "./routes/devices.routes.js";
 import { settingsRoutes } from "./routes/settings.routes.js";
+
+/**
+ * Home location for sunset schedules: add-on options / env first, otherwise
+ * Home Assistant's own location via the Supervisor core API.
+ */
+async function resolveHomeLocation(
+  config: ReturnType<typeof loadConfig>,
+  log: { info: (o: object, m: string) => void; warn: (o: object, m: string) => void }
+): Promise<HomeLocation | null> {
+  const { latitude, longitude, elevation } = config.location;
+  if (latitude || longitude) {
+    log.info({ latitude, longitude, elevation }, "Home location from options");
+    return { latitude, longitude, elevation };
+  }
+  const token = process.env.SUPERVISOR_TOKEN;
+  if (!token) {
+    log.warn({}, "No home location configured — sunset schedules disabled");
+    return null;
+  }
+  try {
+    const res = await fetch("http://supervisor/core/api/config", {
+      headers: { Authorization: `Bearer ${token}` },
+      signal: AbortSignal.timeout(10000),
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const ha = (await res.json()) as { latitude: number; longitude: number; elevation?: number };
+    const loc = { latitude: ha.latitude, longitude: ha.longitude, elevation: ha.elevation ?? 0 };
+    log.info(loc, "Home location from Home Assistant");
+    return loc;
+  } catch (err) {
+    log.warn({ err: String(err) }, "Could not read Home Assistant location — sunset schedules disabled");
+    return null;
+  }
+}
 
 async function main() {
   const config = loadConfig();
@@ -229,10 +263,12 @@ async function main() {
     }
 
     // 3. Initialize scheduler and apply current curfew state
+    scheduler.setLocation(await resolveHomeLocation(config, fastify.log));
     scheduler.initialize();
     await scheduler.applyCurrentState();
 
-    // 4. Start poll loop
+    // 4. Start poll loop (and keep HA's MQTT entities current)
+    stateManager.setAfterPoll(() => mqttService.publishState());
     stateManager.startPolling();
 
     // 5. Start HTTP server

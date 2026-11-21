@@ -35,6 +35,13 @@ export class StateManager {
     this.removal = service;
   }
 
+  private afterPoll: (() => void) | null = null;
+
+  /** Called after every successful poll (e.g. to push state to MQTT) */
+  setAfterPoll(fn: () => void): void {
+    this.afterPoll = fn;
+  }
+
   async initialSync(): Promise<void> {
     this.log.info("Starting initial sync with Sure Petcare API");
     await this.poll();
@@ -49,7 +56,9 @@ export class StateManager {
     );
     this.pollTimer = setInterval(() => {
       this.log.debug("Poll tick");
-      this.poll().catch((err) => {
+      this.poll()
+        .then(() => this.afterPoll?.())
+        .catch((err) => {
         this.log.error({ err: err?.message ?? err, stack: err?.stack }, "Poll failed");
       });
     }, this.pollIntervalMs);

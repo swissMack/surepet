@@ -11,6 +11,8 @@ export class MqttService {
   private prefix: string;
   private connected = false;
   private curfewService: CurfewService | null = null;
+  /** Cats/devices (id + name) covered by the last discovery publish */
+  private announced = "";
 
   constructor(
     private config: Config["mqtt"],
@@ -211,10 +213,18 @@ export class MqttService {
       );
     }
 
+    this.announced = this.discoverySignature();
     this.log.info(
       { cats: allCats.length, devices: allDevices.length },
       "MQTT discovery published"
     );
+  }
+
+  /** Identity of everything discovery covers — changes when a cat or device is added or renamed */
+  private discoverySignature(): string {
+    const cats = this.cats.getAll().map((c) => `c${c.id}:${c.name}`);
+    const devices = this.devices.getAll().map((d) => `d${d.id}:${d.name}`);
+    return [...cats, ...devices].sort().join("|");
   }
 
   private publishDiscoveryConfig(
@@ -269,6 +279,12 @@ export class MqttService {
   /** Publish all current state to MQTT topics */
   publishState(): void {
     if (!this.connected) return;
+
+    // Cats added (or renamed) in the official app after startup need
+    // their discovery configs before HA will create entities for them.
+    if (this.discoverySignature() !== this.announced) {
+      this.publishDiscovery();
+    }
 
     const allCats = this.cats.getAll();
     const allDevices = this.devices.getAll();

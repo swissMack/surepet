@@ -8,6 +8,8 @@ export interface ScheduleRow {
   lock_time: string; // HH:MM
   unlock_time: string; // HH:MM
   enabled: number;
+  lock_at_sunset: number;
+  lock_offset_min: number;
   created_at: string;
   updated_at: string;
 }
@@ -18,6 +20,8 @@ export interface CreateSchedule {
   days_of_week: number[];
   lock_time: string;
   unlock_time: string;
+  lock_at_sunset?: boolean;
+  lock_offset_min?: number;
 }
 
 export class ScheduleRepository {
@@ -54,12 +58,14 @@ export class ScheduleRepository {
   create(schedule: CreateSchedule): ScheduleRow {
     const result = this.db
       .prepare(
-        `INSERT INTO curfew_schedules (cat_id, name, days_of_week, lock_time, unlock_time)
-       VALUES (@cat_id, @name, @days_of_week, @lock_time, @unlock_time)`
+        `INSERT INTO curfew_schedules (cat_id, name, days_of_week, lock_time, unlock_time, lock_at_sunset, lock_offset_min)
+       VALUES (@cat_id, @name, @days_of_week, @lock_time, @unlock_time, @lock_at_sunset, @lock_offset_min)`
       )
       .run({
         ...schedule,
         days_of_week: JSON.stringify(schedule.days_of_week),
+        lock_at_sunset: schedule.lock_at_sunset ? 1 : 0,
+        lock_offset_min: schedule.lock_offset_min ?? 0,
       });
     return this.getById(Number(result.lastInsertRowid))!;
   }
@@ -89,6 +95,14 @@ export class ScheduleRepository {
     if (fields.unlock_time !== undefined) {
       updates.push("unlock_time = @unlock_time");
       params.unlock_time = fields.unlock_time;
+    }
+    if (fields.lock_at_sunset !== undefined) {
+      updates.push("lock_at_sunset = @lock_at_sunset");
+      params.lock_at_sunset = fields.lock_at_sunset ? 1 : 0;
+    }
+    if (fields.lock_offset_min !== undefined) {
+      updates.push("lock_offset_min = @lock_offset_min");
+      params.lock_offset_min = fields.lock_offset_min;
     }
 
     if (updates.length > 0) {

@@ -43,6 +43,7 @@ export function catsRoutes(fastify: FastifyInstance, deps: CatsDeps): void {
         ...s,
         days_of_week: JSON.parse(s.days_of_week),
         enabled: !!s.enabled,
+        lock_at_sunset: !!s.lock_at_sunset,
       })),
     }));
   });
@@ -59,6 +60,7 @@ export function catsRoutes(fastify: FastifyInstance, deps: CatsDeps): void {
         ...s,
         days_of_week: JSON.parse(s.days_of_week),
         enabled: !!s.enabled,
+        lock_at_sunset: !!s.lock_at_sunset,
       })),
     };
   });

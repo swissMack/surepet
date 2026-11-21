@@ -1,7 +1,8 @@
 import type { FastifyInstance } from "fastify";
-import type { ScheduleRepository, CreateSchedule } from "../db/repositories/schedule.repository.js";
+import type { ScheduleRepository } from "../db/repositories/schedule.repository.js";
 import type { CatRepository } from "../db/repositories/cat.repository.js";
 import type { Scheduler } from "../services/scheduler.js";
+import type { ScheduleRow } from "../db/repositories/schedule.repository.js";
 
 interface CurfewDeps {
   schedules: ScheduleRepository;
@@ -21,6 +22,13 @@ function validateScheduleBody(
   if (body.unlock_time && !TIME_REGEX.test(body.unlock_time as string)) {
     return "unlock_time must be HH:MM format";
   }
+  if (
+    body.lock_offset_min !== undefined &&
+    (!Number.isInteger(body.lock_offset_min) ||
+      Math.abs(body.lock_offset_min as number) > 180)
+  ) {
+    return "lock_offset_min must be a whole number of minutes between -180 and 180";
+  }
   if (body.days_of_week) {
     const days = body.days_of_week as number[];
     if (!Array.isArray(days) || !days.every((d) => VALID_DAYS.includes(d))) {
@@ -30,15 +38,20 @@ function validateScheduleBody(
   return null;
 }
 
+function toApi(s: ScheduleRow) {
+  return {
+    ...s,
+    days_of_week: JSON.parse(s.days_of_week),
+    enabled: !!s.enabled,
+    lock_at_sunset: !!s.lock_at_sunset,
+  };
+}
+
 export function curfewRoutes(fastify: FastifyInstance, deps: CurfewDeps): void {
   const { schedules, cats, scheduler } = deps;
 
   fastify.get("/api/curfew", async () => {
-    return schedules.getAll().map((s) => ({
-      ...s,
-      days_of_week: JSON.parse(s.days_of_week),
-      enabled: !!s.enabled,
-    }));
+    return schedules.getAll().map(toApi);
   });
 
   fastify.post<{
@@ -46,16 +59,18 @@ export function curfewRoutes(fastify: FastifyInstance, deps: CurfewDeps): void {
       cat_id: number;
       name: string;
       days_of_week: number[];
-      lock_time: string;
+      lock_time?: string;
       unlock_time: string;
+      lock_at_sunset?: boolean;
+      lock_offset_min?: number;
     };
   }>("/api/curfew", async (request, reply) => {
     const body = request.body;
 
-    if (!body.cat_id || !body.name || !body.lock_time || !body.unlock_time) {
-      return reply
-        .status(400)
-        .send({ error: "cat_id, name, lock_time, unlock_time are required" });
+    if (!body.cat_id || !body.name || !body.unlock_time || (!body.lock_time && !body.lock_at_sunset)) {
+      return reply.status(400).send({
+        error: "cat_id, name, unlock_time and lock_time (or lock_at_sunset) are required",
+      });
     }
 
     const cat = cats.getById(body.cat_id);
@@ -72,17 +87,17 @@ export function curfewRoutes(fastify: FastifyInstance, deps: CurfewDeps): void {
       cat_id: body.cat_id,
       name: body.name,
       days_of_week: body.days_of_week || [0, 1, 2, 3, 4, 5, 6],
-      lock_time: body.lock_time,
+      // Placeholder until the sunset refresh below fills in today's time
+      lock_time: body.lock_time || "20:00",
       unlock_time: body.unlock_time,
+      lock_at_sunset: !!body.lock_at_sunset,
+      lock_offset_min: body.lock_offset_min ?? 0,
     });
 
+    scheduler.refreshSunsetTimes(created.id);
     scheduler.createJobs(created.id);
 
-    return reply.status(201).send({
-      ...created,
-      days_of_week: JSON.parse(created.days_of_week),
-      enabled: !!created.enabled,
-    });
+    return reply.status(201).send(toApi(schedules.getById(created.id)!));
   });
 
   fastify.put<{
@@ -92,10 +107,17 @@ export function curfewRoutes(fastify: FastifyInstance, deps: CurfewDeps): void {
       days_of_week?: number[];
       lock_time?: string;
       unlock_time?: string;
+      lock_at_sunset?: boolean;
+      lock_offset_min?: number;
     };
   }>("/api/curfew/:id", async (request, reply) => {
     const id = Number(request.params.id);
-    const body = request.body;
+    const body = { ...request.body };
+    // An explicit lock_time without lock_at_sunset means "fixed time from now on"
+    if (body.lock_time !== undefined && body.lock_at_sunset === undefined) {
+      body.lock_at_sunset = false;
+    }
+    if (body.lock_at_sunset) delete body.lock_time;
 
     const validationError = validateScheduleBody(body as Record<string, unknown>);
     if (validationError) {
@@ -107,13 +129,10 @@ export function curfewRoutes(fastify: FastifyInstance, deps: CurfewDeps): void {
       return reply.status(404).send({ error: "Schedule not found" });
     }
 
+    scheduler.refreshSunsetTimes(id);
     scheduler.createJobs(id);
 
-    return {
-      ...updated,
-      days_of_week: JSON.parse(updated.days_of_week),
-      enabled: !!updated.enabled,
-    };
+    return toApi(schedules.getById(id)!);
   });
 
   fastify.delete<{ Params: { id: string } }>(
@@ -144,11 +163,7 @@ export function curfewRoutes(fastify: FastifyInstance, deps: CurfewDeps): void {
         scheduler.stopJobs(id);
       }
 
-      return {
-        ...toggled,
-        days_of_week: JSON.parse(toggled.days_of_week),
-        enabled: !!toggled.enabled,
-      };
+      return toApi(toggled);
     }
   );
 }

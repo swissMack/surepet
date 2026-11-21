@@ -155,6 +155,13 @@ body{
 .btn-lock{background:var(--rose-dim);color:#fff}
 .btn-lock:hover{background:var(--rose);box-shadow:0 0 16px #f43f5e33}
 .btn-unlock{background:var(--emerald-dim);color:#fff}
+.lock-row{display:flex;gap:.5rem;align-items:center}
+.lock-row .form-input{flex:1;min-width:0}
+.btn-sunset{white-space:nowrap;padding:.55rem .8rem;border-radius:8px;border:1px solid #f59e0b66;background:transparent;color:#f59e0b;cursor:pointer;font:inherit;font-size:.85rem}
+.btn-sunset.active{background:#f59e0b;color:#111;border-color:#f59e0b}
+.sunset-offset{display:none;align-items:center;gap:.4rem;margin-top:.4rem;font-size:.8rem;opacity:.85}
+.sunset-offset.show{display:flex}
+.sunset-offset input{width:5rem}
 .btn-unlock:hover{background:var(--emerald);box-shadow:0 0 16px #10b98133}
 
 /* schedules inside cat card */
@@ -397,7 +404,15 @@ body{
       </div>
       <div class="form-group">
         <label class="form-label">Lock Time</label>
-        <input class="form-input" type="time" id="fLock" value="21:00" required>
+        <div class="lock-row">
+          <input class="form-input" type="time" id="fLock" value="21:00" required>
+          <button type="button" class="btn-sunset" id="fSunset" onclick="toggleSunset()" title="Lock at sunset — recalculated every day">🌇 Sunset</button>
+        </div>
+        <div class="sunset-offset" id="fOffsetRow">
+          <span>Offset</span>
+          <input class="form-input" type="number" id="fOffset" value="0" min="-180" max="180" step="5">
+          <span>min (e.g. 10 = 10 min after sunset)</span>
+        </div>
       </div>
       <div class="form-group">
         <label class="form-label">Unlock Time</label>
@@ -447,6 +462,7 @@ body{
     <ul>
       <li>At <b>lock time</b>, the cat's profile is set to <b>Indoor Only</b> — it can come in but not go out.</li>
       <li>At <b>unlock time</b>, the profile is set back to <b>Full Access</b>.</li>
+      <li><b>🌇 Sunset:</b> Press <b>Sunset</b> instead of picking a lock time and the schedule locks at that day's sunset (plus an optional offset in minutes). The time is recalculated every night from Home Assistant's home location.</li>
       <li><b>Overnight handling:</b> If unlock time is earlier than lock time (e.g. lock at 21:00, unlock at 07:00), the unlock happens the following morning.</li>
     </ul>
 
@@ -545,7 +561,7 @@ function renderCats() {
       return `<div class="sched-row">
         <div class="sched-info">
           <span class="sched-name">${esc(s.name)}</span>
-          <span class="sched-time">${s.lock_time} → ${s.unlock_time}</span>
+          <span class="sched-time">${s.lock_at_sunset?`🌇 Sunset${s.lock_offset_min?(s.lock_offset_min>0?'+':'')+s.lock_offset_min+'′':''} (${s.lock_time})`:s.lock_time} → ${s.unlock_time}</span>
           <span class="sched-days">${days}</span>
         </div>
         <div class="sched-actions">
@@ -743,6 +759,7 @@ function editSched(s) {
   document.getElementById('fName').value = s.name;
   document.getElementById('fLock').value = s.lock_time;
   document.getElementById('fUnlock').value = s.unlock_time;
+  setSunset(!!s.lock_at_sunset, s.lock_offset_min || 0);
   selectedDays = new Set(s.days_of_week);
   renderDays();
   document.getElementById('fSubmit').textContent = 'Update Schedule';
@@ -759,8 +776,21 @@ function editSched(s) {
   panel.scrollIntoView({behavior:'smooth'});
 }
 
+// ── Sunset lock option ──
+let sunsetMode = false;
+function setSunset(on, offset = 0) {
+  sunsetMode = on;
+  document.getElementById('fSunset').classList.toggle('active', on);
+  document.getElementById('fOffsetRow').classList.toggle('show', on);
+  const lock = document.getElementById('fLock');
+  lock.disabled = on; lock.required = !on;
+  document.getElementById('fOffset').value = offset;
+}
+function toggleSunset() { setSunset(!sunsetMode, Number(document.getElementById('fOffset').value) || 0); }
+
 function cancelEdit() {
   editingScheduleId = null;
+  setSunset(false);
   document.getElementById('fCat').selectedIndex = 0;
   document.getElementById('fName').value = '';
   document.getElementById('fLock').value = '21:00';
@@ -821,7 +851,9 @@ document.getElementById('schedForm').addEventListener('submit', async (e) => {
   e.preventDefault();
   const lockTime = document.getElementById('fLock').value;
   const unlockTime = document.getElementById('fUnlock').value;
-  if (lockTime === unlockTime) { toast('Lock and unlock times cannot be the same', 'error'); return; }
+  const offset = Number(document.getElementById('fOffset').value) || 0;
+  if (sunsetMode && (!Number.isInteger(offset) || Math.abs(offset) > 180)) { toast('Offset must be whole minutes between -180 and 180', 'error'); return; }
+  if (!sunsetMode && lockTime === unlockTime) { toast('Lock and unlock times cannot be the same', 'error'); return; }
   if (selectedDays.size === 0) { toast('Select at least one day', 'error'); return; }
 
   // Check for overlapping schedules on the same cat
@@ -853,10 +885,11 @@ document.getElementById('schedForm').addEventListener('submit', async (e) => {
   try {
     const body = {
       name: document.getElementById('fName').value,
-      lock_time: lockTime,
       unlock_time: unlockTime,
       days_of_week: [...selectedDays].sort(),
+      lock_at_sunset: sunsetMode,
     };
+    if (sunsetMode) body.lock_offset_min = offset; else body.lock_time = lockTime;
     if (isEdit) {
       await put(`/api/curfew/${editingScheduleId}`, body);
       toast('Schedule updated');
@@ -869,6 +902,7 @@ document.getElementById('schedForm').addEventListener('submit', async (e) => {
     document.getElementById('fName').value = '';
     document.getElementById('fLock').value = '21:00';
     document.getElementById('fUnlock').value = '07:00';
+    setSunset(false);
     selectedDays = new Set([0,1,2,3,4,5,6]);
     renderDays();
     editingScheduleId = null;

@@ -3,6 +3,13 @@ import type { FastifyBaseLogger } from "fastify";
 import { ScheduleRepository } from "../db/repositories/schedule.repository.js";
 import { EventRepository } from "../db/repositories/event.repository.js";
 import type { CurfewService } from "./curfew.service.js";
+import { sunsetLockTime } from "./sun.js";
+
+export interface HomeLocation {
+  latitude: number;
+  longitude: number;
+  elevation: number;
+}
 
 interface ActiveJob {
   scheduleId: number;
@@ -13,6 +20,8 @@ interface ActiveJob {
 export class Scheduler {
   private jobs = new Map<number, ActiveJob>();
   private log: FastifyBaseLogger;
+  private sunsetJob: cron.ScheduledTask | null = null;
+  private location: HomeLocation | null = null;
 
   constructor(
     private schedules: ScheduleRepository,
@@ -24,10 +33,65 @@ export class Scheduler {
     this.log = log.child({ module: "scheduler" });
   }
 
+  /** Home location for sunset schedules; without it they keep their last lock_time */
+  setLocation(location: HomeLocation | null): void {
+    this.location = location;
+  }
+
+  /**
+   * Rewrite lock_time of every sunset schedule to today's sunset + offset.
+   * Returns true if any lock_time changed. Leaves cron jobs to the caller.
+   */
+  refreshSunsetTimes(scheduleId?: number): boolean {
+    const targets = this.schedules
+      .getAll()
+      .filter((s) => s.lock_at_sunset && (scheduleId === undefined || s.id === scheduleId));
+    if (targets.length === 0) return false;
+    if (!this.location) {
+      this.log.warn("No home location — sunset schedules keep their last lock time");
+      return false;
+    }
+    let changed = false;
+    for (const s of targets) {
+      const lockTime = sunsetLockTime(
+        this.location.latitude,
+        this.location.longitude,
+        this.timezone,
+        s.lock_offset_min,
+        this.location.elevation
+      );
+      if (!lockTime) {
+        this.log.warn({ scheduleId: s.id }, "No sunset today at this location — lock time unchanged");
+        continue;
+      }
+      if (lockTime !== s.lock_time) {
+        this.schedules.update(s.id, { lock_time: lockTime });
+        this.log.info(
+          { scheduleId: s.id, name: s.name, from: s.lock_time, to: lockTime, offset: s.lock_offset_min },
+          "Sunset lock time updated"
+        );
+        changed = true;
+      }
+    }
+    return changed;
+  }
+
   /** Load all enabled schedules and create cron jobs */
   initialize(): void {
     this.log.info("Initializing scheduler");
     this.stopAll();
+    this.refreshSunsetTimes();
+
+    // Recompute sunset lock times shortly after midnight (local time)
+    if (!this.sunsetJob) {
+      this.sunsetJob = cron.schedule(
+        "1 0 * * *",
+        () => {
+          if (this.refreshSunsetTimes()) this.initialize();
+        },
+        { timezone: this.timezone }
+      );
+    }
 
     const enabled = this.schedules.getEnabled();
     for (const schedule of enabled) {

@@ -69,6 +69,15 @@ const migrations: { version: number; name: string; sql: string }[] = [
     // in the official app); cleared again if it reappears.
     sql: `ALTER TABLE cats ADD COLUMN missing_since TEXT;`,
   },
+  {
+    version: 3,
+    name: "schedules_lock_at_sunset",
+    // lock_time is recomputed daily from sunset + lock_offset_min when set.
+    sql: `
+      ALTER TABLE curfew_schedules ADD COLUMN lock_at_sunset INTEGER NOT NULL DEFAULT 0;
+      ALTER TABLE curfew_schedules ADD COLUMN lock_offset_min INTEGER NOT NULL DEFAULT 0;
+    `,
+  },
 ];
 
 export function runMigrations(db: Database.Database): void {

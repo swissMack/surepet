@@ -25,6 +25,8 @@ export interface Config {
     path: string;
   };
   timezone: string;
+  /** Home location, used for sunset-based lock times */
+  location: { latitude: number; longitude: number; elevation: number };
   isHomeAssistant: boolean;
 }
 
@@ -75,6 +77,11 @@ export function loadConfig(): Config {
         path: "/data/surepet.db",
       },
       timezone: (haOptions.timezone as string) || "Europe/Amsterdam",
+      location: {
+        latitude: Number(haOptions.latitude ?? 0),
+        longitude: Number(haOptions.longitude ?? 0),
+        elevation: Number(haOptions.elevation ?? 0),
+      },
       isHomeAssistant: true,
     };
   }
@@ -110,6 +117,11 @@ export function loadConfig(): Config {
       path: process.env.DB_PATH || join(process.cwd(), "data", "surepet.db"),
     },
     timezone: process.env.TZ || "Europe/Amsterdam",
+    location: {
+      latitude: Number(process.env.LATITUDE ?? 0),
+      longitude: Number(process.env.LONGITUDE ?? 0),
+      elevation: Number(process.env.ELEVATION ?? 0),
+    },
     isHomeAssistant: false,
   };
 }
