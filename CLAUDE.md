@@ -30,7 +30,7 @@ ssh pve "systemctl restart surepet"
 
 ### Deploy HA Addon
 
-Commit and push, bump version in `ha-addon/config.yaml` if Dockerfile changed, then reinstall addon in HA UI.
+Commit and push, then bump `version` in `ha-addon/config.yaml` AND `APP_VERSION` in `ha-addon/build.yaml` + `ha-addon/Dockerfile` to the same value on every release. `APP_VERSION` is what busts the Docker cache of the GitHub source download — if it stays the same, the add-on updates to the new version number but keeps running the old code (hit with 1.0.15). Then update the addon in HA.
 
 ## Architecture
 
