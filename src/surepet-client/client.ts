@@ -144,6 +144,21 @@ export class SurePetClient {
     );
   }
 
+  /**
+   * Set a pet's location in the Sure Petcare cloud (same call the official
+   * app makes). where: 1 = inside, 2 = outside. Without this, a location set
+   * locally is overwritten by the next dashboard poll.
+   */
+  async setPetPosition(petId: number, where: number): Promise<unknown> {
+    // Sure Petcare expects "YYYY-MM-DD HH:MM" in UTC
+    const since = new Date().toISOString().slice(0, 16).replace("T", " ");
+    this.log.info({ petId, where, since }, "Setting pet position");
+    return this.request<unknown>("POST", ENDPOINTS.PET_POSITION(petId), {
+      where,
+      since,
+    });
+  }
+
   clearToken(): void {
     this.token = null;
     this.cache.delete("auth_token");

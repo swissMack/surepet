@@ -5,6 +5,8 @@ import type { ScheduleRepository } from "../db/repositories/schedule.repository.
 import type { CurfewService } from "../services/curfew.service.js";
 import type { MqttService } from "../services/mqtt.service.js";
 import type { CatRemovalService } from "../services/cat-removal.service.js";
+import type { SurePetClient } from "../surepet-client/client.js";
+import { PET_LOCATION } from "../surepet-client/constants.js";
 
 interface CatsDeps {
   cats: CatRepository;
@@ -13,10 +15,11 @@ interface CatsDeps {
   curfewService: CurfewService;
   mqtt: MqttService;
   catRemoval: CatRemovalService;
+  client: SurePetClient;
 }
 
 export function catsRoutes(fastify: FastifyInstance, deps: CatsDeps): void {
-  const { cats, events, schedules, curfewService, mqtt, catRemoval } = deps;
+  const { cats, events, schedules, curfewService, mqtt, catRemoval, client } = deps;
 
   // Remove a pet that has been deleted from the Sure Petcare account.
   // Pets still in the account are refused — the next poll would re-add them.
@@ -95,6 +98,19 @@ export function catsRoutes(fastify: FastifyInstance, deps: CatsDeps): void {
         return reply.status(400).send({ error: "Location must be 'inside' or 'outside'" });
       }
       const prev = cat.location;
+      // Write to the Sure Petcare cloud first — the poller syncs location
+      // from there, so a local-only change is reverted on the next poll.
+      try {
+        await client.setPetPosition(
+          catId,
+          location === "inside" ? PET_LOCATION.INSIDE : PET_LOCATION.OUTSIDE
+        );
+      } catch (err) {
+        request.log.error({ catId, location, err: String(err) }, "Setting pet position failed");
+        return reply
+          .status(502)
+          .send({ error: "Sure Petcare did not accept the new location — nothing changed" });
+      }
       cats.updateLocation(catId, location);
       events.log(
         "manual_location",

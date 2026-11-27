@@ -177,6 +177,7 @@ async function main() {
     curfewService,
     mqtt: mqttService,
     catRemoval,
+    client,
   });
 
   curfewRoutes(fastify, {
