@@ -150,8 +150,12 @@ export class SurePetClient {
    * locally is overwritten by the next dashboard poll.
    */
   async setPetPosition(petId: number, where: number): Promise<unknown> {
-    // Sure Petcare expects "YYYY-MM-DD HH:MM" in UTC
-    const since = new Date().toISOString().slice(0, 16).replace("T", " ");
+    // Sure Petcare reads "since" as LOCAL time "YYYY-MM-DD HH:MM" (as surepy
+    // sends it). A UTC string lands an hour in the future in CET and can
+    // mask the next real flap movement. The Supervisor sets TZ in the add-on.
+    const d = new Date();
+    const p = (n: number) => String(n).padStart(2, "0");
+    const since = `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
     this.log.info({ petId, where, since }, "Setting pet position");
     return this.request<unknown>("POST", ENDPOINTS.PET_POSITION(petId), {
       where,
