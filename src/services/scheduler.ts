@@ -104,78 +104,99 @@ export class Scheduler {
     );
   }
 
-  /** Evaluate all schedules right now and apply correct profiles */
-  async applyCurrentState(): Promise<void> {
-    this.log.info("Evaluating current curfew state on startup");
-    const enabled = this.schedules.getEnabled();
-    const now = new Date();
-    const currentDay = now.getDay(); // 0=Sun, 1=Mon, ...
-    const currentTime = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
+  /** Day of week (0=Sun) and "HH:MM" right now in the add-on's timezone */
+  private nowInTz(now: Date = new Date()): { day: number; time: string } {
+    const parts = new Intl.DateTimeFormat("en-GB", {
+      timeZone: this.timezone,
+      weekday: "short",
+      hour: "2-digit",
+      minute: "2-digit",
+      hourCycle: "h23",
+    }).formatToParts(now);
+    const get = (t: string) => parts.find((p) => p.type === t)?.value ?? "";
+    const day = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].indexOf(get("weekday"));
+    return { day, time: `${get("hour")}:${get("minute")}` };
+  }
 
-    // Group schedules by cat
-    const catSchedules = new Map<number, typeof enabled>();
-    for (const s of enabled) {
-      const list = catSchedules.get(s.cat_id) || [];
-      list.push(s);
-      catSchedules.set(s.cat_id, list);
-    }
+  /**
+   * Should this cat be locked in right now, judged from ALL its enabled
+   * schedules?
+   *  - "curfew" schedule: locked in from lock_time to unlock_time.
+   *  - "out" schedule: allowed out from unlock_time to lock_time; a cat with
+   *    any enabled "out" schedule is locked in outside all of its out windows.
+   * Being inside any curfew window always wins.
+   * Returns null when the cat has no enabled schedule (manual state is kept).
+   */
+  shouldBeLocked(catId: number, now: Date = new Date()): boolean | null {
+    const list = this.schedules.getEnabled().filter((s) => s.cat_id === catId);
+    if (list.length === 0) return null;
+    const { day, time } = this.nowInTz(now);
 
-    for (const [catId, scheduleList] of catSchedules) {
-      let shouldBeLocked = false;
+    const curfews = list.filter((s) => s.mode !== "out");
+    const outs = list.filter((s) => s.mode === "out");
 
-      for (const schedule of scheduleList) {
-        const days: number[] = JSON.parse(schedule.days_of_week);
+    const inCurfew = curfews.some((s) =>
+      this.isInWindow(JSON.parse(s.days_of_week), s.lock_time, s.unlock_time, day, time)
+    );
+    if (inCurfew) return true;
+    if (outs.length === 0) return false;
+    const inOut = outs.some((s) =>
+      this.isInWindow(JSON.parse(s.days_of_week), s.unlock_time, s.lock_time, day, time)
+    );
+    return !inOut;
+  }
 
-        if (this.isInCurfewWindow(days, schedule.lock_time, schedule.unlock_time, currentDay, currentTime)) {
-          shouldBeLocked = true;
-          break;
-        }
-      }
-
-      if (shouldBeLocked) {
-        this.log.info({ catId }, "Startup: curfew should be active now");
-        await this.curfewService.activateCurfew(catId);
-      } else {
-        this.log.info({ catId }, "Startup: curfew should be inactive now");
-        await this.curfewService.deactivateCurfew(catId);
-      }
+  /** Apply the state shouldBeLocked() wants for one cat (after a schedule change). */
+  async applyCat(catId: number): Promise<void> {
+    const { locked, success } = await this.reconcile(catId);
+    if (locked !== null) {
+      this.log.info({ catId, locked, success }, "Applied schedules after change");
     }
   }
 
-  /** Check if the current time falls within a curfew window */
-  private isInCurfewWindow(
+  /** Apply the state shouldBeLocked() wants for one cat. */
+  private async reconcile(catId: number): Promise<{ locked: boolean | null; success: boolean }> {
+    const locked = this.shouldBeLocked(catId);
+    if (locked === null) return { locked, success: true };
+    const success = locked
+      ? await this.curfewService.activateCurfew(catId)
+      : await this.curfewService.deactivateCurfew(catId);
+    return { locked, success };
+  }
+
+  /** Evaluate all schedules right now and apply correct profiles */
+  async applyCurrentState(): Promise<void> {
+    this.log.info("Evaluating current curfew state on startup");
+    const catIds = [...new Set(this.schedules.getEnabled().map((s) => s.cat_id))];
+    for (const catId of catIds) {
+      const locked = this.shouldBeLocked(catId);
+      this.log.info(
+        { catId },
+        locked ? "Startup: curfew should be active now" : "Startup: curfew should be inactive now"
+      );
+      await this.reconcile(catId);
+    }
+  }
+
+  /**
+   * Is (day, time) inside a window that starts at `start` and ends at `end`
+   * on the given days? A window with start > end runs past midnight into the
+   * next day.
+   */
+  private isInWindow(
     days: number[],
-    lockTime: string,
-    unlockTime: string,
+    start: string,
+    end: string,
     currentDay: number,
     currentTime: string
   ): boolean {
-    const isOvernight = lockTime > unlockTime;
-
-    if (isOvernight) {
-      // e.g., lock 21:00, unlock 07:00
-      // Active if: (today is a curfew day AND time >= lockTime) OR
-      //            (yesterday was a curfew day AND time < unlockTime)
+    if (start > end) {
       const yesterday = (currentDay + 6) % 7;
-
-      if (days.includes(currentDay) && currentTime >= lockTime) {
-        return true;
-      }
-      if (days.includes(yesterday) && currentTime < unlockTime) {
-        return true;
-      }
-    } else {
-      // Same-day: e.g., lock 08:00, unlock 17:00
-      if (
-        days.includes(currentDay) &&
-        currentTime >= lockTime &&
-        currentTime < unlockTime
-      ) {
-        return true;
-      }
+      if (days.includes(currentDay) && currentTime >= start) return true;
+      if (days.includes(yesterday) && currentTime < end) return true;
+      return false;
     }
-
-    return false;
+    return days.includes(currentDay) && currentTime >= start && currentTime < end;
   }
 
   /** Create lock and unlock cron jobs for a schedule */
@@ -195,13 +216,17 @@ export class Scheduler {
       .map(Number);
 
     // Cron day-of-week: 0=Sun, 1=Mon, ... 6=Sat (same as JS)
-    const lockDaysCron = days.join(",");
 
-    // For overnight schedules, unlock days are shifted +1
-    const isOvernight = schedule.lock_time > schedule.unlock_time;
-    const unlockDays = isOvernight
-      ? days.map((d) => (d + 1) % 7)
-      : days;
+    // The window's END fires on the next day when the window runs past
+    // midnight. Curfew window: lock → unlock. Out window: unlock → lock.
+    const shift = (ds: number[]) => ds.map((d) => (d + 1) % 7);
+    const isOut = schedule.mode === "out";
+    const crossesMidnight = isOut
+      ? schedule.unlock_time > schedule.lock_time
+      : schedule.lock_time > schedule.unlock_time;
+    const lockDays = isOut && crossesMidnight ? shift(days) : days;
+    const unlockDays = !isOut && crossesMidnight ? shift(days) : days;
+    const lockDaysCron = lockDays.join(",");
     const unlockDaysCron = unlockDays.join(",");
 
     const lockCron = `${lockMinute} ${lockHour} * * ${lockDaysCron}`;
@@ -212,6 +237,7 @@ export class Scheduler {
         scheduleId,
         catId: schedule.cat_id,
         name: schedule.name,
+        mode: schedule.mode,
         lockCron,
         unlockCron,
       },
@@ -223,11 +249,12 @@ export class Scheduler {
       async () => {
         this.log.info(
           { scheduleId, catId: schedule.cat_id, name: schedule.name },
-          "Cron: activating curfew"
+          "Cron: lock time reached"
         );
-        const success = await this.curfewService.activateCurfew(schedule.cat_id);
+        // Judge from all of the cat's schedules, not just this one
+        const { locked, success } = await this.reconcile(schedule.cat_id);
         this.eventRepo.log(
-          "cron_lock",
+          locked === false ? "cron_unlock" : "cron_lock",
           { scheduleId, name: schedule.name, success },
           schedule.cat_id
         );
@@ -240,13 +267,12 @@ export class Scheduler {
       async () => {
         this.log.info(
           { scheduleId, catId: schedule.cat_id, name: schedule.name },
-          "Cron: deactivating curfew"
+          "Cron: unlock time reached"
         );
-        const success = await this.curfewService.deactivateCurfew(
-          schedule.cat_id
-        );
+        // Judge from all of the cat's schedules, not just this one
+        const { locked, success } = await this.reconcile(schedule.cat_id);
         this.eventRepo.log(
-          "cron_unlock",
+          locked === true ? "cron_lock" : "cron_unlock",
           { scheduleId, name: schedule.name, success },
           schedule.cat_id
         );

@@ -78,6 +78,13 @@ const migrations: { version: number; name: string; sql: string }[] = [
       ALTER TABLE curfew_schedules ADD COLUMN lock_offset_min INTEGER NOT NULL DEFAULT 0;
     `,
   },
+  {
+    version: 4,
+    name: "schedules_mode",
+    // "curfew" = locked in between lock and unlock; "out" = allowed out only
+    // between unlock and lock
+    sql: `ALTER TABLE curfew_schedules ADD COLUMN mode TEXT NOT NULL DEFAULT 'curfew';`,
+  },
 ];
 
 export function runMigrations(db: Database.Database): void {

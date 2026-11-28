@@ -78,6 +78,7 @@ The addon provides a web UI accessible via the HA sidebar (panel icon: cat). Fea
 - Cat cards with location, profile, curfew status
 - Lock/Free buttons for manual curfew control
 - Schedule management (create, edit, delete, enable/disable)
+- Two schedule types: **Curfew** (kept in between the times) and **Allowed out** (may go out only between the times, kept in the rest of the time). Kept in always lets the cat come back in
 - Device status (battery, signal, lock mode)
 - Event log with pagination
 - Settings page (read-only in HA mode — configure via addon settings)

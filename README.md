@@ -12,6 +12,7 @@ The app connects to the Sure Petcare cloud API and controls **per-cat tag profil
 
 - **Per-cat curfew schedules** — each cat gets its own lock/unlock times and days of the week
 - **Overnight schedules** — lock Friday 21:00, unlock Saturday 07:00 works correctly
+- **"Allowed out" schedules** — the inverse of a curfew: the cat may go out only inside the window (e.g. Sat + Sun 11:00–13:00) and is kept in the rest of the week. Kept in = Sure Petcare curfew profile, so the cat can always come back **in**; it is never locked out. Lock and unlock events and the startup check are worked out from all of the cat's schedules, and a curfew window wins over an out window
 - **Web dashboard** — manage schedules, view cat locations, device battery/signal, event log
 - **Home Assistant MQTT integration** — auto-discovered entities for each cat and device
 - **Bidirectional control** — toggle curfew from the web UI, HA switches, or automations

@@ -402,8 +402,15 @@ body{
         <label class="form-label">Schedule Name</label>
         <input class="form-input" id="fName" placeholder="e.g. Night curfew" required>
       </div>
+      <div class="form-group full">
+        <label class="form-label">Type</label>
+        <select class="form-select" id="fMode" onchange="setMode(this.value)">
+          <option value="curfew">Curfew: kept in between the times, free to go out otherwise</option>
+          <option value="out">Allowed out: may go out only between the times, kept in otherwise</option>
+        </select>
+      </div>
       <div class="form-group">
-        <label class="form-label">Lock Time</label>
+        <label class="form-label" id="fLockLabel">Lock Time</label>
         <div class="lock-row">
           <input class="form-input" type="time" id="fLock" value="21:00" required>
           <button type="button" class="btn-sunset" id="fSunset" onclick="toggleSunset()" title="Lock at sunset — recalculated every day">🌇 Sunset</button>
@@ -415,7 +422,7 @@ body{
         </div>
       </div>
       <div class="form-group">
-        <label class="form-label">Unlock Time</label>
+        <label class="form-label" id="fUnlockLabel">Unlock Time</label>
         <input class="form-input" type="time" id="fUnlock" value="07:00" required>
       </div>
       <div class="form-group full">
@@ -561,7 +568,10 @@ function renderCats() {
       return `<div class="sched-row">
         <div class="sched-info">
           <span class="sched-name">${esc(s.name)}</span>
-          <span class="sched-time">${s.lock_at_sunset?`🌇 Sunset${s.lock_offset_min?(s.lock_offset_min>0?'+':'')+s.lock_offset_min+'′':''} (${s.lock_time})`:s.lock_time} → ${s.unlock_time}</span>
+          ${(() => { const lockTxt = s.lock_at_sunset?`🌇 Sunset${s.lock_offset_min?(s.lock_offset_min>0?'+':'')+s.lock_offset_min+'′':''} (${s.lock_time})`:s.lock_time;
+             return s.mode==='out'
+               ? `<span class="sched-time" title="Allowed out only in this window, kept in (can still come in) otherwise">🚪 out ${s.unlock_time} → ${lockTxt}</span>`
+               : `<span class="sched-time" title="Kept in (can still come in) in this window">🔒 ${lockTxt} → ${s.unlock_time}</span>`; })()}
           <span class="sched-days">${days}</span>
         </div>
         <div class="sched-actions">
@@ -759,6 +769,7 @@ function editSched(s) {
   document.getElementById('fName').value = s.name;
   document.getElementById('fLock').value = s.lock_time;
   document.getElementById('fUnlock').value = s.unlock_time;
+  setMode(s.mode || 'curfew');
   setSunset(!!s.lock_at_sunset, s.lock_offset_min || 0);
   selectedDays = new Set(s.days_of_week);
   renderDays();
@@ -776,6 +787,15 @@ function editSched(s) {
   panel.scrollIntoView({behavior:'smooth'});
 }
 
+// ── Schedule type ──
+// "out" reuses the same fields: unlock_time = out from, lock_time = back in by
+function setMode(mode) {
+  document.getElementById('fMode').value = mode;
+  const out = mode === 'out';
+  document.getElementById('fLockLabel').textContent = out ? 'Kept in again from (lock)' : 'Lock Time';
+  document.getElementById('fUnlockLabel').textContent = out ? 'Allowed out from (unlock)' : 'Unlock Time';
+}
+
 // ── Sunset lock option ──
 let sunsetMode = false;
 function setSunset(on, offset = 0) {
@@ -791,6 +811,7 @@ function toggleSunset() { setSunset(!sunsetMode, Number(document.getElementById(
 function cancelEdit() {
   editingScheduleId = null;
   setSunset(false);
+  setMode('curfew');
   document.getElementById('fCat').selectedIndex = 0;
   document.getElementById('fName').value = '';
   document.getElementById('fLock').value = '21:00';
@@ -865,6 +886,7 @@ document.getElementById('schedForm').addEventListener('submit', async (e) => {
     const overlap = cat.schedules.find(s => {
       if (editingScheduleId === s.id) return false;
       if (!s.enabled) return false;
+      if ((s.mode || 'curfew') !== document.getElementById('fMode').value) return false;
       const sDays = new Set(s.days_of_week);
       const sharedDays = [...selectedDays].some(d => sDays.has(d));
       if (!sharedDays) return false;
@@ -888,6 +910,7 @@ document.getElementById('schedForm').addEventListener('submit', async (e) => {
       unlock_time: unlockTime,
       days_of_week: [...selectedDays].sort(),
       lock_at_sunset: sunsetMode,
+      mode: document.getElementById('fMode').value,
     };
     if (sunsetMode) body.lock_offset_min = offset; else body.lock_time = lockTime;
     if (isEdit) {
@@ -903,6 +926,7 @@ document.getElementById('schedForm').addEventListener('submit', async (e) => {
     document.getElementById('fLock').value = '21:00';
     document.getElementById('fUnlock').value = '07:00';
     setSunset(false);
+    setMode('curfew');
     selectedDays = new Set([0,1,2,3,4,5,6]);
     renderDays();
     editingScheduleId = null;

@@ -1,5 +1,8 @@
 import type Database from "better-sqlite3";
 
+/** "curfew": locked in lock→unlock. "out": allowed out only unlock→lock. */
+export type ScheduleMode = "curfew" | "out";
+
 export interface ScheduleRow {
   id: number;
   cat_id: number;
@@ -10,6 +13,7 @@ export interface ScheduleRow {
   enabled: number;
   lock_at_sunset: number;
   lock_offset_min: number;
+  mode: ScheduleMode;
   created_at: string;
   updated_at: string;
 }
@@ -22,6 +26,7 @@ export interface CreateSchedule {
   unlock_time: string;
   lock_at_sunset?: boolean;
   lock_offset_min?: number;
+  mode?: ScheduleMode;
 }
 
 export class ScheduleRepository {
@@ -58,14 +63,15 @@ export class ScheduleRepository {
   create(schedule: CreateSchedule): ScheduleRow {
     const result = this.db
       .prepare(
-        `INSERT INTO curfew_schedules (cat_id, name, days_of_week, lock_time, unlock_time, lock_at_sunset, lock_offset_min)
-       VALUES (@cat_id, @name, @days_of_week, @lock_time, @unlock_time, @lock_at_sunset, @lock_offset_min)`
+        `INSERT INTO curfew_schedules (cat_id, name, days_of_week, lock_time, unlock_time, lock_at_sunset, lock_offset_min, mode)
+       VALUES (@cat_id, @name, @days_of_week, @lock_time, @unlock_time, @lock_at_sunset, @lock_offset_min, @mode)`
       )
       .run({
         ...schedule,
         days_of_week: JSON.stringify(schedule.days_of_week),
         lock_at_sunset: schedule.lock_at_sunset ? 1 : 0,
         lock_offset_min: schedule.lock_offset_min ?? 0,
+        mode: schedule.mode ?? "curfew",
       });
     return this.getById(Number(result.lastInsertRowid))!;
   }
@@ -103,6 +109,11 @@ export class ScheduleRepository {
     if (fields.lock_offset_min !== undefined) {
       updates.push("lock_offset_min = @lock_offset_min");
       params.lock_offset_min = fields.lock_offset_min;
+    }
+
+    if (fields.mode !== undefined) {
+      updates.push("mode = @mode");
+      params.mode = fields.mode;
     }
 
     if (updates.length > 0) {

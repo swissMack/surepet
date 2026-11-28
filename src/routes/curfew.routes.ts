@@ -29,6 +29,9 @@ function validateScheduleBody(
   ) {
     return "lock_offset_min must be a whole number of minutes between -180 and 180";
   }
+  if (body.mode !== undefined && body.mode !== "curfew" && body.mode !== "out") {
+    return "mode must be 'curfew' or 'out'";
+  }
   if (body.days_of_week) {
     const days = body.days_of_week as number[];
     if (!Array.isArray(days) || !days.every((d) => VALID_DAYS.includes(d))) {
@@ -63,6 +66,7 @@ export function curfewRoutes(fastify: FastifyInstance, deps: CurfewDeps): void {
       unlock_time: string;
       lock_at_sunset?: boolean;
       lock_offset_min?: number;
+      mode?: "curfew" | "out";
     };
   }>("/api/curfew", async (request, reply) => {
     const body = request.body;
@@ -92,10 +96,12 @@ export function curfewRoutes(fastify: FastifyInstance, deps: CurfewDeps): void {
       unlock_time: body.unlock_time,
       lock_at_sunset: !!body.lock_at_sunset,
       lock_offset_min: body.lock_offset_min ?? 0,
+      mode: body.mode ?? "curfew",
     });
 
     scheduler.refreshSunsetTimes(created.id);
     scheduler.createJobs(created.id);
+    await scheduler.applyCat(created.cat_id);
 
     return reply.status(201).send(toApi(schedules.getById(created.id)!));
   });
@@ -109,6 +115,7 @@ export function curfewRoutes(fastify: FastifyInstance, deps: CurfewDeps): void {
       unlock_time?: string;
       lock_at_sunset?: boolean;
       lock_offset_min?: number;
+      mode?: "curfew" | "out";
     };
   }>("/api/curfew/:id", async (request, reply) => {
     const id = Number(request.params.id);
@@ -131,6 +138,7 @@ export function curfewRoutes(fastify: FastifyInstance, deps: CurfewDeps): void {
 
     scheduler.refreshSunsetTimes(id);
     scheduler.createJobs(id);
+    await scheduler.applyCat(updated.cat_id);
 
     return toApi(schedules.getById(id)!);
   });
@@ -162,6 +170,9 @@ export function curfewRoutes(fastify: FastifyInstance, deps: CurfewDeps): void {
       } else {
         scheduler.stopJobs(id);
       }
+      // Disabling the last schedule leaves the cat as it is (indoor-only =
+      // schedule disabled + curfew active)
+      await scheduler.applyCat(toggled.cat_id);
 
       return toApi(toggled);
     }
