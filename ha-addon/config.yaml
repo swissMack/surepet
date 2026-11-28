@@ -1,6 +1,6 @@
 name: "SurePet Per-Cat Curfew"
 description: "Independent curfew schedules per cat for Sure Petcare DualScan cat flaps"
-version: "1.0.18"
+version: "1.0.19"
 slug: "surepet-curfew"
 url: "https://github.com/swissMack/Surepet"
 arch:
@@ -17,6 +17,7 @@ ingress: true
 ingress_port: 3000
 panel_icon: "mdi:cat"
 panel_title: "SurePet Curfew"
+panel_admin: false  # visible to non-admin household users (Julie, Noah, Zaki)
 homeassistant_api: true
 services:
   - mqtt:want
